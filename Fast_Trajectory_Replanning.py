@@ -220,15 +220,7 @@ def makeGrid():
                     break
             if new_parent is None:
                 break
-    GameScreen = pygame.display.set_mode((GridCols*blockwidth+20,GridRows*blockwidth+20))
-    GridSurface = pygame.Surface(GameScreen.get_size())
-    GridSurface = drawGrid(GridSurface)
-    drawScreen(GridSurface)
-    time.sleep(5)
-    GridSurface = drawMaze(GridSurface)
-    drawScreen(GridSurface)
-    return None
-
+                
 
 class LoopingThread(threading.Thread):
     def __init__(self):
