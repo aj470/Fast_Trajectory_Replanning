@@ -15,7 +15,6 @@ import threading
 from random import *
 from random import random, uniform
 from ast import literal_eval as make_tuple
-from IPython.core.debugger import set_trace
 
 #Convention for the Environment
 # Initialize Grid
@@ -278,7 +277,7 @@ class PygameThread(LoopingThread):
 
     def shutdown(self):
         pygame.quit()
-        os.kill(os.getpid(), signal.SIGALRM)
+        os.kill(os.getpid(), signal.SIGINT)
 
     def handleInputs(self):
         # Get Input
@@ -331,7 +330,7 @@ def main():
         def pygame_exit_signal_handler(signal, frame):
             quit()
         # set that signal handler to accept SIGUSR1
-        signal.signal(signal.SIGALRM, pygame_exit_signal_handler)
+        signal.signal(signal.SIGINT, pygame_exit_signal_handler)
 
         pyThread = PygameThread()
 
