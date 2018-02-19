@@ -220,7 +220,7 @@ def makeGrid():
                     break
             if new_parent is None:
                 break
-                
+
 
 class LoopingThread(threading.Thread):
     def __init__(self):
@@ -278,7 +278,7 @@ class PygameThread(LoopingThread):
 
     def shutdown(self):
         pygame.quit()
-        os.kill(os.getpid(), signal.SIGUSR1)
+        os.kill(os.getpid(), signal.SIGALRM)
 
     def handleInputs(self):
         # Get Input
@@ -331,7 +331,7 @@ def main():
         def pygame_exit_signal_handler(signal, frame):
             quit()
         # set that signal handler to accept SIGUSR1
-        signal.signal(signal.SIGUSR1, pygame_exit_signal_handler)
+        signal.signal(signal.SIGALRM, pygame_exit_signal_handler)
 
         pyThread = PygameThread()
 
