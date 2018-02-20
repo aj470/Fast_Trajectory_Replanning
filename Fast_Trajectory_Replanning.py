@@ -16,6 +16,8 @@ import threading
 from random import *
 from random import random, uniform
 from ast import literal_eval as make_tuple
+import sys
+import argparse
 
 #Convention for the Environment
 # Initialize Grid
@@ -282,7 +284,7 @@ class PygameThread(LoopingThread):
 
     def handleInputs(self):
         # Get Input
-    	for event in pygame.event.get():
+        for event in pygame.event.get():
             if event.type == QUIT:
                 self.stop()
             elif event.type == KEYDOWN:
@@ -291,9 +293,12 @@ class PygameThread(LoopingThread):
                 if event.key == K_m:
                     self.drawMaze()
                     self.update()
+                    self.FRAME_RATE = 0
 
     def update(self):
         # render surface onto screen and update screen
+        if self.FRAME_RATE == 0:
+            return
         self.GameScreen.blit(self.GridSurface, (0,0))
         pygame.display.update()
 
@@ -315,11 +320,11 @@ class PygameThread(LoopingThread):
         for x in range(len(maze)):
             for y in range(len(maze[x])):
                 if maze[x][y] == 0:
-                    pygame.draw.rect(myGridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(myGridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
+                    pygame.draw.rect(self.GridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
+                    pygame.draw.rect(self.GridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
                 elif maze[x][y] == 1:
-                    pygame.draw.rect(myGridSurface, (255,255,255), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(myGridSurface, (100,100,100), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
+                    pygame.draw.rect(self.GridSurface, (255,255,255), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
+                    pygame.draw.rect(self.GridSurface, (100,100,100), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
         #myGridSurface = myGridSurface.convert()
         #return myGridSurface
 
@@ -329,6 +334,26 @@ class ProcessingThread(LoopingThread):
         self.stop()
 
 def main():
+    
+    parser = argparse.ArgumentParser(description="CS440 Project 1 -- Fast_Trajectory_Replanning")
+    parser.add_argument("Algorithm", type= int,choices=[1,2,3], help= "1. A* forward, 2. A* backward, 3. Adaptive A*")
+    parser.add_argument("T", type=int, help="Tree number between 0-50")
+    parser.add_argument("s_x", type = int, help="Start x")
+    parser.add_argument("s_y", type = int, help="Start_y")
+    parser.add_argument("g_X", type = int, help="Goal_x")
+    parser.add_argument("g_y", type = int, help="Goal_y")
+    parser.add_argument("-R", help="Fully Random",action="store_true")
+
+    args = vars(parser.parse_args())
+    
+    #if len(args) != 6:
+    #   parser.print_help()
+    #    sys.exit(1)
+    args=parser.parse_args()
+    #print(args)
+    #num_registers = args["k"]
+    ##algorithm = args["algorithm"]
+    #filename = args["file"]
     # toggles whether or not screen gets drawn
     visual = True
     pyThread = DummyThread()
