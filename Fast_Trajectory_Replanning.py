@@ -50,7 +50,9 @@ class Node:
         self.y = y
         self._visited = False
         self._blocked = False
-        self.current = None
+
+    def reset(self):
+        self._visited = False
 
     def visit(self):
         self._visited = True
@@ -74,6 +76,7 @@ class MazeBuilder:
         self.rows = rows
         self.columns = cols
         self.maze = [[Node(x, y) for x in range(cols)] for y in range(rows)]
+        self.current = None
 
     def get_node(self, x, y):
         if x < 0 or x >= self.rows:
@@ -116,6 +119,7 @@ class MazeBuilder:
         if len(options) == 0:
             return None
 
+
         return options[randrange(0, len(options))]
 
     def build(self):
@@ -142,6 +146,13 @@ class MazeBuilder:
             else:
                 # otherwise, there was a valid neighbor, but it is now blocked
                 continue
+
+        for row in self.maze:
+            for node in row:
+                if not node.visited():
+                    node.block()
+                node.reset()
+
         print("finished")
 
 #get the string for the cell location
@@ -370,6 +381,7 @@ class PygameThread(LoopingThread):
         self.GridSurface = pygame.Surface(self.GameScreen.get_size())
         self.myfont = pygame.font.SysFont("monospace", 15)
         self.clock = pygame.time.Clock()
+        self.hide_unvisited = True
 
     def execute(self):
         self.handleInputs()
@@ -390,10 +402,12 @@ class PygameThread(LoopingThread):
             elif event.type == KEYDOWN:
                 if event.key == K_ESCAPE:
                     self.stop()
-                if event.key == K_m:
+                elif event.key == K_m:
                     self.drawMaze()
                     self.update()
                     self.FRAME_RATE = 0
+                elif event.key == K_s:
+                    self.hide_unvisited = not self.hide_unvisited
 
     def update(self):
         # render surface onto screen and update screen
@@ -407,7 +421,7 @@ class PygameThread(LoopingThread):
         global mazeBuilder
         for row in mazeBuilder.maze:
             for node in row:
-                if node.visited() and not node.blocked():
+                if not node.blocked() and (self.hide_unvisited or node.visited()):
                     pygame.draw.rect(self.GridSurface, (255,255,255), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth,blockwidth), 0)
                     pygame.draw.rect(self.GridSurface, (100,100,100), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
                 else:
