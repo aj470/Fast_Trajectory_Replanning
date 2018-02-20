@@ -44,109 +44,6 @@ last_parent_y = 0
 #main tree
 tree = {}
 
-class Node:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-        self._visited = False
-        self._blocked = False
-
-    def reset(self):
-        self._visited = False
-
-    def visit(self):
-        self._visited = True
-
-    def block(self):
-        self._blocked = True
-
-    def visited(self):
-        return self._visited
-
-    def blocked(self):
-        return self._blocked
-
-    def __eq__(self, other):
-        if isinstance(other, Node):
-            return self.x == other.x and self.y == other.y
-        return False
-
-class Grid:
-    def __init__(self, rows, cols):
-        self.rows = rows
-        self.cols = cols
-        self.maze = [[Node(x, y) for x in range(cols)] for y in range(rows)]
-
-    def node(self, x, y):
-        if x < 0 or x >= self.rows:
-            return None
-        if y < 0 or y >= self.cols:
-            return None
-        return self.maze[y][x]
-
-    def neighbors(self, node):
-        neighbors = [
-                self.node(node.x, node.y-1),
-                self.node(node.x, node.y+1),
-                self.node(node.x-1, node.y),
-                self.node(node.x+1, node.y)]
-        return tuple(filter(lambda n: n, neighbors))
-
-class MazeBuilder:
-    def __init__(self, rows, cols, maze_seed=None):
-        if maze_seed:
-            seed(maze_seed)
-        self.rows = rows
-        self.cols = cols
-        self.grid = Grid(rows, cols)
-        self.current = None
-
-    def init_node(self, node):
-        node.visit()
-        if random() < 0.3:
-            node.block()
-            return False
-        return True
-
-    def random_neighbor(self, node):
-        options = list(filter(lambda x: not x.visited(), self.grid.neighbors(node)))
-        if len(options) == 0:
-            return None
-
-        return options[randrange(0, len(options))]
-
-    def build(self):
-        self.backtrace = []
-        start_x = randrange(0, self.cols)
-        start_y = randrange(0, self.rows)
-        finished = False
-        start_node = self.grid.node(start_x, start_y)
-        self.current = start_node
-        self.current.visit()
-
-        while not finished:
-            next_node = self.random_neighbor(self.current)
-            if not next_node and self.current == start_node:
-                # we're back at the start with nowhere else to explore
-                finished = True
-            elif not next_node:
-                # reached a dead end -- begin back tracking
-                self.current = self.backtrace.pop()
-            elif next_node and self.init_node(next_node):
-                # there is an unblocked node to move to -- move to it
-                self.backtrace.append(self.current)
-                self.current = next_node
-            else:
-                # otherwise, there was a valid neighbor, but it is now blocked
-                continue
-
-        for row in self.grid.maze:
-            for node in row:
-                if not node.visited():
-                    node.block()
-                node.reset()
-        print("finished")
-
 
 #get the string for the cell location
 def get_String(x,y):
@@ -327,6 +224,123 @@ def makeGrid():
                 break
 
 
+class Node:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self._visited = False
+        self._blocked = False
+
+    def reset(self):
+        self._visited = False
+
+    def visit(self):
+        self._visited = True
+
+    def block(self):
+        self._blocked = True
+
+    def visited(self):
+        return self._visited
+
+    def blocked(self):
+        return self._blocked
+
+    def walkable(self):
+        # this is to be used for the path finding algorithm to account for fog of war
+        return not self.visited() or (self.visited() and not self.blocked())
+
+    def __eq__(self, other):
+        if isinstance(other, Node):
+            return self.x == other.x and self.y == other.y
+        return False
+
+    def __ne__(self, other):
+        return not self == other
+
+
+class Grid:
+    def __init__(self, rows, cols):
+        self.rows = rows
+        self.cols = cols
+        self.maze = [[Node(x, y) for x in range(cols)] for y in range(rows)]
+
+    def node(self, x, y):
+        if x < 0 or x >= self.rows:
+            return None
+        if y < 0 or y >= self.cols:
+            return None
+        return self.maze[y][x]
+
+    def neighbors(self, node):
+        neighbors = [
+                self.node(node.x, node.y-1),
+                self.node(node.x, node.y+1),
+                self.node(node.x-1, node.y),
+                self.node(node.x+1, node.y)]
+        return tuple(filter(lambda n: n, neighbors))
+
+
+class MazeBuilder:
+    def __init__(self, rows, cols, maze_seed=None):
+        if maze_seed:
+            seed(maze_seed)
+        self.rows = rows
+        self.cols = cols
+        self.grid = Grid(rows, cols)
+        self.current = None
+
+    def init_node(self, node):
+        node.visit()
+        if random() < 0.3:
+            node.block()
+            return False
+        return True
+
+    def random_neighbor(self, node):
+        options = list(filter(lambda x: not x.visited(), self.grid.neighbors(node)))
+        if len(options) == 0:
+            return None
+
+        return options[randrange(0, len(options))]
+
+    def build(self):
+        self.backtrace = []
+        start_x = randrange(0, self.cols)
+        start_y = randrange(0, self.rows)
+        finished = False
+        start_node = self.grid.node(start_x, start_y)
+        self.current = start_node
+        self.current.visit()
+        self.clock = pygame.time.Clock()
+
+        while not finished:
+            #self.clock.tick(120)
+            next_node = self.random_neighbor(self.current)
+            if not next_node and self.current == start_node:
+                # we're back at the start with nowhere else to explore
+                finished = True
+            elif not next_node:
+                # reached a dead end -- begin back tracking
+                self.current = self.backtrace.pop()
+            elif next_node and self.init_node(next_node):
+                # there is an unblocked node to move to -- move to it
+                self.backtrace.append(self.current)
+                self.current = next_node
+            else:
+                # otherwise, there was a valid neighbor, but it is now blocked
+                continue
+
+        for row in self.grid.maze:
+            # mark all unvisited nodes as blocked
+            for node in row:
+                if not node.visited():
+                    node.block()
+                node.reset()
+        print("finished")
+        return self.grid
+
+
 class LoopingThread(threading.Thread):
     def __init__(self):
         super().__init__()
@@ -410,54 +424,108 @@ class PygameThread(LoopingThread):
         pygame.display.update()
 
     def drawMyMaze(self):
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # we should do something better for drawing. This is messy and ugly
         self.GridSurface.fill((255, 255, 255))
         global mazeBuilder
         for y in range(mazeBuilder.grid.rows):
             for x in range(mazeBuilder.grid.cols):
                 node = mazeBuilder.grid.node(x, y)
-                if not node.blocked() and (self.hide_unvisited or node.visited()):
-                    pygame.draw.rect(self.GridSurface, (255,255,255), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(self.GridSurface, (100,100,100), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
-                else:
-                    pygame.draw.rect(self.GridSurface, (40,40,40), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(self.GridSurface, (40,40,40), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
+                color1 = (255, 255, 255)
+                color2 = (100, 100, 100)
+
+                if not node.walkable():
+                    color1 = (0, 0, 0)
+                    color2 = (0, 0, 0)
+                elif node.blocked() and not self.hide_unvisited:
+                    color1 = (0, 0, 0)
+                    color2 = (0, 0, 0)
+                elif not node.visited() and self.hide_unvisited:
+                    color1 = (40, 40, 40)
+                    color2 = (40, 40, 40)
+
+                pygame.draw.rect(self.GridSurface, color1, (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth,blockwidth), 0)
+                pygame.draw.rect(self.GridSurface, color2, (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
         cur = mazeBuilder.current
         pygame.draw.rect(self.GridSurface, (255, 0, 0), (cur.x*blockwidth+10, cur.y*blockwidth+10, blockwidth, blockwidth), 0)
         pygame.draw.rect(self.GridSurface, (255, 0, 0), (cur.x*blockwidth+10, cur.y*blockwidth+10, blockwidth+1, blockwidth+1), 1)
+        global start
+        global end
+        pygame.draw.rect(self.GridSurface, (0, 0, 255), (start.x*blockwidth+10, start.y*blockwidth+10, blockwidth, blockwidth), 0)
+        pygame.draw.rect(self.GridSurface, (0, 0, 255), (start.x*blockwidth+10, start.y*blockwidth+10, blockwidth+1, blockwidth+1), 1)
+        pygame.draw.rect(self.GridSurface, (0, 255, 0), (end.x*blockwidth+10, end.y*blockwidth+10, blockwidth, blockwidth), 0)
+        pygame.draw.rect(self.GridSurface, (0, 255, 0), (end.x*blockwidth+10, end.y*blockwidth+10, blockwidth+1, blockwidth+1), 1)
+        global algorithm
+        if algorithm.agent:
+            pygame.draw.rect(self.GridSurface, (0, 255, 255), (algorithm.agent.x*blockwidth+10, algorithm.agent.y*blockwidth+10, blockwidth, blockwidth), 0)
+            pygame.draw.rect(self.GridSurface, (0, 255, 255), (algorithm.agent.x*blockwidth+10, algorithm.agent.y*blockwidth+10, blockwidth+1, blockwidth+1), 1)
 
-    def drawGrid(self):
-        # draw grid on surface
-        self.GridSurface.fill((255,255,255))
-        for x in range(len(track_maze)):
-            for y in range(len(track_maze[x])):
-                if track_maze[x][y] == 0:
-                    pygame.draw.rect(self.GridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(self.GridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
-                elif track_maze[x][y] == 1:
-                    pygame.draw.rect(self.GridSurface, (255,255,255), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(self.GridSurface, (100,100,100), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
+class AgentAlgorithm:
+    def __init__(self, grid):
+        self.grid = grid
+        self.counter = 0
+        self.agent = None
 
-    def drawMaze(self):
-        """!!!!!! I have not fixed this method yet !!!!!!!"""
-        self.GridSurface.fill((255,255,255))
-        for x in range(len(maze)):
-            for y in range(len(maze[x])):
-                if maze[x][y] == 0:
-                    pygame.draw.rect(self.GridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(self.GridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
-                elif maze[x][y] == 1:
-                    pygame.draw.rect(self.GridSurface, (255,255,255), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(self.GridSurface, (100,100,100), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
-        #myGridSurface = myGridSurface.convert()
-        #return myGridSurface
+    def compute_path(self, goal, open_list):
+        raise NotImplemented()
 
+    def run(self, start, end):
+        open_list = [] # !!!! this should be a binary heap
+        open_list.append(start)
+        self.agent = start
+        self.counter = 0
+        clock = pygame.time.Clock()
+
+        for neighbor in self.grid.neighbors(self.agent):
+            # visit all neighbors
+            neighbor.visit()
+
+        while self.agent != end and len(open_list) != 0:
+            self.counter += 1
+            path = self.compute_path(end, open_list)
+            # path should be a list of nodes leading from agent to goal
+            if len(path) == 0:
+                return False
+
+            for node in path:
+                clock.tick(60)
+                # for each node in the path
+                if node.walkable():
+                    self.agent = node
+                    # if we can move to it, move to it and visit neighbors
+                    for neighbor in self.grid.neighbors(self.agent):
+                        neighbor.visit()
+
+        if self.agent == end:
+            print("Got to the end")
+        else:
+            print("Did not make it")
+
+
+class RandomAlgorithm(AgentAlgorithm):
+    def compute_path(self, goal, open_list):
+        neighbors = self.grid.neighbors(self.agent)
+        return [neighbors[randrange(0, len(neighbors))]]
+
+# having this as a global is kinda weird and makes for weird code
+# I tried to make it not global and couldn't get it quite right so I gave up
+# feel free to try if it becomes inconvenient to you
 mazeBuilder = MazeBuilder(GridRows, GridCols, maze_seed=20)
+algorithm = RandomAlgorithm(mazeBuilder.grid)
+start = mazeBuilder.grid.node(1, 0)
+end = mazeBuilder.grid.node(100, 100)
 
 class ProcessingThread(LoopingThread):
     def execute(self):
         global mazeBuilder
-        mazeBuilder.build()
-        #makeGrid()
+        global algorithm
+        global start
+        global end
+
+        maze = mazeBuilder.build()
+        algorithm.run(start, end)
+        while True:
+            continue
         self.stop()
 
 def main():
