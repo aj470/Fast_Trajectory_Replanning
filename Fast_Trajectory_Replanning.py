@@ -71,19 +71,35 @@ class Node:
             return self.x == other.x and self.y == other.y
         return False
 
-class MazeBuilder:
+class Grid:
     def __init__(self, rows, cols):
         self.rows = rows
-        self.columns = cols
+        self.cols = cols
         self.maze = [[Node(x, y) for x in range(cols)] for y in range(rows)]
-        self.current = None
 
-    def get_node(self, x, y):
+    def node(self, x, y):
         if x < 0 or x >= self.rows:
             return None
-        if y < 0 or y >= self.columns:
+        if y < 0 or y >= self.cols:
             return None
         return self.maze[y][x]
+
+    def neighbors(self, node):
+        neighbors = [
+                self.node(node.x, node.y-1),
+                self.node(node.x, node.y+1),
+                self.node(node.x-1, node.y),
+                self.node(node.x+1, node.y)]
+        return tuple(filter(lambda n: n, neighbors))
+
+class MazeBuilder:
+    def __init__(self, rows, cols, maze_seed=None):
+        if maze_seed:
+            seed(maze_seed)
+        self.rows = rows
+        self.cols = cols
+        self.grid = Grid(rows, cols)
+        self.current = None
 
     def init_node(self, node):
         node.visit()
@@ -93,41 +109,18 @@ class MazeBuilder:
         return True
 
     def random_neighbor(self, node):
-        x0, y0 = node.x, node.y
-        previous = self.backtrace[-1] if len(self.backtrace) > 0 else None
-        options = []
-
-        if not previous:
-            options.append(self.get_node(x0-1, y0))
-            options.append(self.get_node(x0+1, y0))
-            options.append(self.get_node(x0, y0-1))
-            options.append(self.get_node(x0, y0+1))
-        elif previous.x != node.x:
-            # meaning we were moving horizontally
-            direction = x0 - previous.x
-            options.append(self.get_node(x0+direction, y0))
-            options.append(self.get_node(x0, y0-1))
-            options.append(self.get_node(x0, y0+1))
-        else:
-            # meaning we were moving vertically
-            direction = y0 - previous.y
-            options.append(self.get_node(x0, y0+direction))
-            options.append(self.get_node(x0-1, y0))
-            options.append(self.get_node(x0+1, y0))
-
-        options = list(filter(lambda x: x and not x.visited(), options))
+        options = list(filter(lambda x: not x.visited(), self.grid.neighbors(node)))
         if len(options) == 0:
             return None
-
 
         return options[randrange(0, len(options))]
 
     def build(self):
         self.backtrace = []
-        start_x = randrange(0, self.columns)
+        start_x = randrange(0, self.cols)
         start_y = randrange(0, self.rows)
         finished = False
-        start_node = self.get_node(start_x, start_y)
+        start_node = self.grid.node(start_x, start_y)
         self.current = start_node
         self.current.visit()
 
@@ -147,13 +140,13 @@ class MazeBuilder:
                 # otherwise, there was a valid neighbor, but it is now blocked
                 continue
 
-        for row in self.maze:
+        for row in self.grid.maze:
             for node in row:
                 if not node.visited():
                     node.block()
                 node.reset()
-
         print("finished")
+
 
 #get the string for the cell location
 def get_String(x,y):
@@ -419,8 +412,9 @@ class PygameThread(LoopingThread):
     def drawMyMaze(self):
         self.GridSurface.fill((255, 255, 255))
         global mazeBuilder
-        for row in mazeBuilder.maze:
-            for node in row:
+        for y in range(mazeBuilder.grid.rows):
+            for x in range(mazeBuilder.grid.cols):
+                node = mazeBuilder.grid.node(x, y)
                 if not node.blocked() and (self.hide_unvisited or node.visited()):
                     pygame.draw.rect(self.GridSurface, (255,255,255), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth,blockwidth), 0)
                     pygame.draw.rect(self.GridSurface, (100,100,100), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
@@ -457,7 +451,7 @@ class PygameThread(LoopingThread):
         #myGridSurface = myGridSurface.convert()
         #return myGridSurface
 
-mazeBuilder = MazeBuilder(GridRows, GridCols)
+mazeBuilder = MazeBuilder(GridRows, GridCols, maze_seed=20)
 
 class ProcessingThread(LoopingThread):
     def execute(self):
