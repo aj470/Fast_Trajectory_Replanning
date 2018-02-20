@@ -14,7 +14,6 @@ import time
 import signal
 import threading
 from random import *
-from random import random, uniform
 from ast import literal_eval as make_tuple
 import sys
 import argparse
@@ -44,6 +43,106 @@ last_parent_y = 0
 
 #main tree
 tree = {}
+
+class Node:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self._visited = False
+        self._blocked = False
+        self.current = None
+
+    def visit(self):
+        self._visited = True
+
+    def block(self):
+        self._blocked = True
+
+    def visited(self):
+        return self._visited
+
+    def blocked(self):
+        return self._blocked
+
+    def __eq__(self, other):
+        if isinstance(other, Node):
+            return self.x == other.x and self.y == other.y
+        return False
+
+class MazeBuilder:
+    def __init__(self, rows, cols):
+        self.rows = rows
+        self.columns = cols
+        self.maze = [[Node(x, y) for x in range(cols)] for y in range(rows)]
+
+    def get_node(self, x, y):
+        if x < 0 or x >= self.rows:
+            return None
+        if y < 0 or y >= self.columns:
+            return None
+        return self.maze[y][x]
+
+    def init_node(self, node):
+        node.visit()
+        if random() < 0.3:
+            node.block()
+            return False
+        return True
+
+    def random_neighbor(self, node):
+        x0, y0 = node.x, node.y
+        previous = self.backtrace[-1] if len(self.backtrace) > 0 else None
+        options = []
+
+        if not previous:
+            options.append(self.get_node(x0-1, y0))
+            options.append(self.get_node(x0+1, y0))
+            options.append(self.get_node(x0, y0-1))
+            options.append(self.get_node(x0, y0+1))
+        elif previous.x != node.x:
+            # meaning we were moving horizontally
+            direction = x0 - previous.x
+            options.append(self.get_node(x0+direction, y0))
+            options.append(self.get_node(x0, y0-1))
+            options.append(self.get_node(x0, y0+1))
+        else:
+            # meaning we were moving vertically
+            direction = y0 - previous.y
+            options.append(self.get_node(x0, y0+direction))
+            options.append(self.get_node(x0-1, y0))
+            options.append(self.get_node(x0+1, y0))
+
+        options = list(filter(lambda x: x and not x.visited(), options))
+        if len(options) == 0:
+            return None
+
+        return options[randrange(0, len(options))]
+
+    def build(self):
+        self.backtrace = []
+        start_x = randrange(0, self.columns)
+        start_y = randrange(0, self.rows)
+        finished = False
+        start_node = self.get_node(start_x, start_y)
+        self.current = start_node
+        self.current.visit()
+
+        while not finished:
+            next_node = self.random_neighbor(self.current)
+            if not next_node and self.current == start_node:
+                # we're back at the start with nowhere else to explore
+                finished = True
+            elif not next_node:
+                # reached a dead end -- begin back tracking
+                self.current = self.backtrace.pop()
+            elif next_node and self.init_node(next_node):
+                # there is an unblocked node to move to -- move to it
+                self.backtrace.append(self.current)
+                self.current = next_node
+            else:
+                # otherwise, there was a valid neighbor, but it is now blocked
+                continue
+        print("finished")
 
 #get the string for the cell location
 def get_String(x,y):
@@ -129,6 +228,8 @@ def build_tree(p_x,p_y):
     last_p_x = p_x
     last_p_y = p_y
 
+
+
     while has_validate_neighbour(p_x,p_y):
         nn_x,nn_y = get_neighbour(p_x,p_y,randint(0,3))
         if nn_x is None or nn_y is None or is_visited(nn_x,nn_y):
@@ -200,7 +301,6 @@ def makeGrid():
 
     while True:
         new_x,new_y = build_tree(p_x,p_y)
-        print("build returns",new_x,new_y)
         global last_parent_x
         global last_parent_y
         if last_parent_x == new_x and last_parent_y == new_y:
@@ -214,7 +314,6 @@ def makeGrid():
 
         if valid_coordinates(int(new_x),int(new_y)):
             new_parent = back_track(new_x,new_y)
-            print("Back track found", new_parent)
             if new_parent:
                 new_px,new_py = get_coord(new_parent)
                 p_x,p_y = new_px,new_py
@@ -274,7 +373,8 @@ class PygameThread(LoopingThread):
 
     def execute(self):
         self.handleInputs()
-        self.drawGrid()
+        self.drawMyMaze()
+        #self.drawGrid()
         self.update()
         self.clock.tick(self.FRAME_RATE) # delay appropriate time frame
 
@@ -302,6 +402,21 @@ class PygameThread(LoopingThread):
         self.GameScreen.blit(self.GridSurface, (0,0))
         pygame.display.update()
 
+    def drawMyMaze(self):
+        self.GridSurface.fill((255, 255, 255))
+        global mazeBuilder
+        for row in mazeBuilder.maze:
+            for node in row:
+                if node.visited() and not node.blocked():
+                    pygame.draw.rect(self.GridSurface, (255,255,255), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth,blockwidth), 0)
+                    pygame.draw.rect(self.GridSurface, (100,100,100), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
+                else:
+                    pygame.draw.rect(self.GridSurface, (40,40,40), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth,blockwidth), 0)
+                    pygame.draw.rect(self.GridSurface, (40,40,40), (node.x*blockwidth+10,node.y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
+        cur = mazeBuilder.current
+        pygame.draw.rect(self.GridSurface, (255, 0, 0), (cur.x*blockwidth+10, cur.y*blockwidth+10, blockwidth, blockwidth), 0)
+        pygame.draw.rect(self.GridSurface, (255, 0, 0), (cur.x*blockwidth+10, cur.y*blockwidth+10, blockwidth+1, blockwidth+1), 1)
+
     def drawGrid(self):
         # draw grid on surface
         self.GridSurface.fill((255,255,255))
@@ -328,13 +443,17 @@ class PygameThread(LoopingThread):
         #myGridSurface = myGridSurface.convert()
         #return myGridSurface
 
+mazeBuilder = MazeBuilder(GridRows, GridCols)
+
 class ProcessingThread(LoopingThread):
     def execute(self):
-        makeGrid()
+        global mazeBuilder
+        mazeBuilder.build()
+        #makeGrid()
         self.stop()
 
 def main():
-    
+
     parser = argparse.ArgumentParser(description="CS440 Project 1 -- Fast_Trajectory_Replanning")
     parser.add_argument("Algorithm", type= int,choices=[1,2,3], help= "1. A* forward, 2. A* backward, 3. Adaptive A*")
     parser.add_argument("T", type=int, help="Tree number between 0-50")
@@ -345,7 +464,7 @@ def main():
     parser.add_argument("-R", help="Fully Random",action="store_true")
 
     args = vars(parser.parse_args())
-    
+
     #if len(args) != 6:
     #   parser.print_help()
     #    sys.exit(1)
@@ -365,7 +484,6 @@ def main():
             quit()
         # set that signal handler to accept SIGUSR1
         signal.signal(signal.SIGINT, pygame_exit_signal_handler)
-
         pyThread = PygameThread()
 
     processing.start()
