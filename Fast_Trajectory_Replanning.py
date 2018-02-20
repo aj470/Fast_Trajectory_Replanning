@@ -31,9 +31,9 @@ GridCols = 101   # No of columns
 GridRows = 101   # No of rows
 
 # should these be arrays of rows instead of arrays of columns?
-# does it matter?
-maze = [[0 for y in range(GridRows)] for x in range(GridCols)]
-track_maze = [[0 for y in range(GridRows)] for x in range(GridCols)]
+# does it matter? 
+maze = [[0 for y in range(GridCols)] for x in range(GridRows)]
+track_maze = [[0 for y in range(GridCols)] for x in range(GridRows)]
 first_parent_x = 0
 first_parent_y = 0
 last_parent_x = 0
@@ -76,7 +76,7 @@ def get_key(value):
 def valid_coordinates(x,y):
     if x is None and y is None:
         return False
-    return 0<= x <GridCols and 0<= y <GridRows
+    return 0<= x <GridRows and 0<= y <GridCols
 
 #get the neighbours for a cell.
 def get_neighbour(x,y,point):
@@ -287,6 +287,9 @@ class PygameThread(LoopingThread):
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     self.stop()
+                if event.key == pygame.K_m:
+                    self.drawMaze()
+                    self.update()
 
     def update(self):
         # render surface onto screen and update screen
@@ -307,7 +310,7 @@ class PygameThread(LoopingThread):
 
     def drawMaze(self):
         """!!!!!! I have not fixed this method yet !!!!!!!"""
-        myGridSurface.fill((255,255,255))
+        self.GridSurface.fill((255,255,255))
         for x in range(len(maze)):
             for y in range(len(maze[x])):
                 if maze[x][y] == 0:
@@ -316,8 +319,8 @@ class PygameThread(LoopingThread):
                 elif maze[x][y] == 1:
                     pygame.draw.rect(myGridSurface, (255,255,255), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
                     pygame.draw.rect(myGridSurface, (100,100,100), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
-        myGridSurface = myGridSurface.convert()
-        return myGridSurface
+        #myGridSurface = myGridSurface.convert()
+        #return myGridSurface
 
 
 def main():
