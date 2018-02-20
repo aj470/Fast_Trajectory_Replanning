@@ -7,6 +7,7 @@
 
 import heapq
 import pygame
+from pygame.locals import *
 import os
 import math
 import time
@@ -31,7 +32,7 @@ GridCols = 101   # No of columns
 GridRows = 101   # No of rows
 
 # should these be arrays of rows instead of arrays of columns?
-# does it matter? 
+# does it matter?
 maze = [[0 for y in range(GridCols)] for x in range(GridRows)]
 track_maze = [[0 for y in range(GridCols)] for x in range(GridRows)]
 first_parent_x = 0
@@ -258,7 +259,7 @@ class PygameThread(LoopingThread):
     can add semaphores or timed leases for accessing global data that will have minimal overhead.
     """
 
-    FRAME_RATE = 30 # in frames per second
+    FRAME_RATE = 60 # in frames per second
 
     def __init__(self):
         super().__init__()
@@ -270,9 +271,9 @@ class PygameThread(LoopingThread):
         self.clock = pygame.time.Clock()
 
     def execute(self):
+        self.handleInputs()
         self.drawGrid()
         self.update()
-        self.handleInputs()
         self.clock.tick(self.FRAME_RATE) # delay appropriate time frame
 
     def shutdown(self):
@@ -282,12 +283,12 @@ class PygameThread(LoopingThread):
     def handleInputs(self):
         # Get Input
     	for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == QUIT:
                 self.stop()
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+            elif event.type == KEYDOWN:
+                if event.key == K_ESCAPE:
                     self.stop()
-                if event.key == pygame.K_m:
+                if event.key == K_m:
                     self.drawMaze()
                     self.update()
 
@@ -322,11 +323,16 @@ class PygameThread(LoopingThread):
         #myGridSurface = myGridSurface.convert()
         #return myGridSurface
 
+class ProcessingThread(LoopingThread):
+    def execute(self):
+        makeGrid()
+        self.stop()
 
 def main():
     # toggles whether or not screen gets drawn
     visual = True
     pyThread = DummyThread()
+    processing = ProcessingThread()
 
     if visual:
         # define signal handler so pygame can tell main thread to stop
@@ -337,8 +343,8 @@ def main():
 
         pyThread = PygameThread()
 
-    pyThread.start()
-    makeGrid()
+    processing.start()
+    pyThread.run()
 
 
 if __name__ == "__main__":
