@@ -230,9 +230,13 @@ class Node:
         self.y = y
         self._visited = False
         self._blocked = False
+        self.g = sys.maxsize
+        self.h = 0
 
     def reset(self):
         self._visited = False
+        self.g = sys.maxsize
+        self.h = 0
 
     def visit(self):
         self._visited = True
@@ -258,6 +262,9 @@ class Node:
     def __ne__(self, other):
         return not self == other
 
+    def __repr__(self):
+        return "Node<%d, %d>" % (self.x, self.y)
+
 
 class Grid:
     def __init__(self, rows, cols):
@@ -279,6 +286,18 @@ class Grid:
                 self.node(node.x-1, node.y),
                 self.node(node.x+1, node.y)]
         return tuple(filter(lambda n: n, neighbors))
+
+    def down(self, node):
+        return self.node(node.x, node.y+1)
+
+    def up(self, node):
+        return self.node(node.x, node.y-1)
+
+    def left(self, node):
+        return self.node(node.x-1, node.y)
+
+    def right(self, node):
+        return self.node(node.x+1, node.y)
 
 
 class MazeBuilder:
@@ -315,7 +334,7 @@ class MazeBuilder:
         self.clock = pygame.time.Clock()
 
         while not finished:
-            #self.clock.tick(120)
+            #self.clock.tick(500)
             next_node = self.random_neighbor(self.current)
             if not next_node and self.current == start_node:
                 # we're back at the start with nowhere else to explore
@@ -460,6 +479,7 @@ class PygameThread(LoopingThread):
             pygame.draw.rect(self.GridSurface, (0, 255, 255), (algorithm.agent.x*blockwidth+10, algorithm.agent.y*blockwidth+10, blockwidth, blockwidth), 0)
             pygame.draw.rect(self.GridSurface, (0, 255, 255), (algorithm.agent.x*blockwidth+10, algorithm.agent.y*blockwidth+10, blockwidth+1, blockwidth+1), 1)
 
+
 class AgentAlgorithm:
     def __init__(self, grid):
         self.grid = grid
@@ -468,6 +488,9 @@ class AgentAlgorithm:
 
     def compute_path(self, goal, open_list):
         raise NotImplemented()
+
+    def manhattan_distance(self, node, end):
+        return abs(end.x - node.x) + abs(end.y - node.y)
 
     def run(self, start, end):
         open_list = [] # !!!! this should be a binary heap
@@ -495,9 +518,11 @@ class AgentAlgorithm:
                     # if we can move to it, move to it and visit neighbors
                     for neighbor in self.grid.neighbors(self.agent):
                         neighbor.visit()
+                else:
+                    break
 
         if self.agent == end:
-            print("Got to the end")
+            print("Got to the end in %d iterations" % self.counter)
         else:
             print("Did not make it")
 
@@ -507,13 +532,57 @@ class RandomAlgorithm(AgentAlgorithm):
         neighbors = self.grid.neighbors(self.agent)
         return [neighbors[randrange(0, len(neighbors))]]
 
+
+class DFSAlgorithm(AgentAlgorithm):
+
+    def compute_path(self, goal, open_list):
+        for row in self.grid.maze:
+            for node in row:
+                node.g = sys.maxsize
+
+        current = self.agent
+        current.g = 0
+        options = []
+        path = []
+
+        while current != goal:
+            for neighbor in self.grid.neighbors(current):
+                if neighbor.g > current.g + 1 and neighbor.walkable():
+                    options.append(neighbor)
+                    neighbor.g = current.g + 1
+
+            current = min(options, key=lambda x: x.g)
+            options.remove(current)
+
+        path.append(current)
+
+        current = goal
+        # backtrack from goal to agent
+        while current != self.agent:
+            neighbors = self.grid.neighbors(current)
+            options = sorted(neighbors, key=lambda x: x.g)
+            if len(options) == 0:
+                # no path can be found
+                return []
+            if options[0].g == sys.maxsize:
+                # no path was traced all the way to here
+                return []
+
+            path.append(options[0])
+            current = options[0]
+
+        path.reverse()
+        return path
+
+
+
 # having this as a global is kinda weird and makes for weird code
 # I tried to make it not global and couldn't get it quite right so I gave up
 # feel free to try if it becomes inconvenient to you
-mazeBuilder = MazeBuilder(GridRows, GridCols, maze_seed=20)
-algorithm = RandomAlgorithm(mazeBuilder.grid)
-start = mazeBuilder.grid.node(1, 0)
-end = mazeBuilder.grid.node(100, 100)
+mazeBuilder = MazeBuilder(GridRows, GridCols, maze_seed=40)
+algorithm = DFSAlgorithm(mazeBuilder.grid)
+start = mazeBuilder.grid.node(4, 0)
+end = mazeBuilder.grid.node(97, 100)
 
 class ProcessingThread(LoopingThread):
     def execute(self):
@@ -524,8 +593,7 @@ class ProcessingThread(LoopingThread):
 
         maze = mazeBuilder.build()
         algorithm.run(start, end)
-        while True:
-            continue
+        node = maze.node(4, 0)
         self.stop()
 
 def main():
@@ -561,6 +629,7 @@ def main():
         # set that signal handler to accept SIGUSR1
         signal.signal(signal.SIGINT, pygame_exit_signal_handler)
         pyThread = PygameThread()
+        processing.daemon = True
 
     processing.start()
     pyThread.run()
