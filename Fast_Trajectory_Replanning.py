@@ -13,7 +13,6 @@ from random import *
 import sys
 import argparse
 from functools import total_ordering
-from heapq import *
 from pympler import tracker
 from time import sleep
 
@@ -30,6 +29,65 @@ from time import sleep
 block_width = 8  # Drawing dimensions of block
 GridCols = 101  # No of columns
 GridRows = 101  # No of rows
+
+"""
+          s          0
+      s        s     1 2
+   s    s   s    s   3 4 5 6
+ s  s  s             7 8 9
+"""
+
+
+def sift(ls, node):
+    left = node * 2 + 1
+    right = node * 2 + 2
+    has_right = right < len(ls)
+
+    min_index = left
+
+    if has_right and ls[right] < ls[left]:
+        min_index = right
+
+    if ls[min_index] < ls[node]:
+        ls[min_index], ls[node] = ls[node], ls[min_index]
+        node = min_index
+
+    return node  # return where the original parent now resides
+
+
+def heapify(ls):
+    current = int((len(ls) - 2) / 2)
+
+    while current >= 0:
+        sift(ls, current)
+        current -= 1
+
+
+def heappush(ls, value):
+    index = len(ls)
+    ls.append(value)
+    parent = int((index - 1) / 2)
+
+    while ls[index] < ls[parent]:
+        ls[index], ls[parent] = ls[parent], ls[index]
+        index = parent
+        parent = int((index - 1) / 2)
+
+
+def heappop(ls):
+    if len(ls) == 1:
+        return ls.pop()
+
+    item = ls[0]
+    ls[0] = ls.pop()
+
+    index = -1
+    next_i = 0
+
+    while next_i != index and int(next_i * 2 + 1) < len(ls):
+        index = next_i
+        next_i = sift(ls, index)
+    return item
 
 
 def heuristic(start, goal):
@@ -49,20 +107,20 @@ class Node:
         self._g = sys.maxsize
         self._h = sys.maxsize
         self._start = False
-        self._end = False
+        self._goal = False
         self._color = None
 
     def start(self):
         return self._start
 
-    def end(self):
-        return self._end
+    def goal(self):
+        return self._goal
 
     def mark_start(self):
         self._start = True
 
-    def mark_end(self):
-        self._end = True
+    def mark_goal(self):
+        self._goal = True
 
     def color(self, newc=None):
         if newc is not None:
@@ -167,8 +225,10 @@ class Grid:
 
 class MazeBuilder:
     def __init__(self, rows, cols, maze_seed=None, limit=False):
-        if maze_seed:
-            seed(maze_seed)
+        if not maze_seed:
+            maze_seed = randrange(0, 10000)
+            print("Using maze seed: %d" % maze_seed)
+        seed(maze_seed)
         self.rows = rows
         self.cols = cols
         self.grid = Grid(rows, cols)
@@ -255,7 +315,7 @@ class MazeBuilder:
             possible_bridge = list(filter(lambda x: x and not x.blocked(), extended_neighbors))
             # chance we create a bridge between two tunnels
             # this prevents there from being precisely 1 path between any two points
-            if len(possible_bridge) > 0 and random() < 0.1:
+            if len(possible_bridge) > 0 and random() < 0.15:
                 node = possible_bridge[0]
                 middle = self.grid.node(int((current.x + node.x) / 2), int((current.y + node.y) / 2))
                 middle.unblock()
@@ -337,53 +397,6 @@ class AgentAlgorithm:
         else:
             print("Did not make it")
 
-    def compute_path2(self, grid, start, goal, open_list, counter):
-        reached = False
-        current = open_list[0]
-        neighbors = grid.neighbors(current)
-
-        while goal.g() > current.f():
-            heappop(open_list)
-
-            if len(neighbors) == 0:
-                return []
-
-            for node in neighbors:
-                if node.search() < counter:
-                    node.search(counter)
-                    node.g(sys.maxsize)
-
-                if node.blocked():
-                    continue
-
-                if node.g() > current.g() + 1:
-                    node.g(start.g() + 1)
-                    node.parent = current
-                    if node == goal:
-                        goal = node
-                        heappush(open_list, node)
-                        reached = True
-                        break
-                    heappush(open_list, node)
-            if reached:
-                break
-
-            if len(open_list) != 0:
-                current = open_list[0]
-                neighbors = grid.neighbors(current)
-            else:
-                break
-
-        path = []
-        current = goal
-        # backtrack from goal to agent
-        while current != start:
-            path.append(current)
-            current = current.parent
-
-        path.reverse()
-        return path
-
 
 class RandomAlgorithm(AgentAlgorithm):
     def compute_path(self, grid, start, goal):
@@ -442,9 +455,9 @@ class AStarAlgorithm(AgentAlgorithm):
 
         i = 0
         while goal.g() > open_list[0].f():
-            # i += 1
-            # print(i)
+            i += 1
             current = heappop(open_list)
+            print(current, current.g(), current.f())
             current.color((100, 0, min(255, current.g())))
             if self.limit:
                 sleep(0.005)
@@ -462,6 +475,8 @@ class AStarAlgorithm(AgentAlgorithm):
 
                     neighbor.h(goal)
                     heappush(open_list, neighbor)
+
+        print("A* visited %d nodes" % i)
 
         if len(open_list) == 0:
             return []
@@ -526,12 +541,13 @@ class PygameHandler:
         pygame.init()
         self.GameScreen = pygame.display.set_mode((GridCols * block_width + 200, GridRows * block_width + 34))
         self.GridSurface = pygame.Surface(self.GameScreen.get_size())
-        self.myfont = pygame.font.SysFont("monospace", 15)
+        self.myfont = pygame.font.Font("roboto.ttf", 14)
         self.clock = pygame.time.Clock()
         self.hide_unvisited = False
         self.renderer = Renderer()
         self.running = False
         self.grid = grid
+        self.info = None
 
     def run(self):
         self.running = True
@@ -548,6 +564,7 @@ class PygameHandler:
 
     def handleInputs(self):
         # Get Input
+
         for event in pygame.event.get():
             if event.type == QUIT:
                 self.stop()
@@ -556,12 +573,28 @@ class PygameHandler:
                     self.stop()
                 elif event.key == K_s:
                     self.hide_unvisited = not self.hide_unvisited
+            elif event.type == MOUSEMOTION:
+                mouse_pos = pygame.mouse.get_pos()
+                x, y = int((mouse_pos[0] - 10) / block_width), int((mouse_pos[1] - 10) / block_width)
+                node = self.grid.node(x, y)
+
+                if node:
+                    info = "X: %d Y: %d\nG: %d\nH: %d\nF: %d\n" % (node.x, node.y, node.g(), node.h(), node.f())
+                    info = info.split("\n")
+                    self.info = [self.myfont.render(msg, True, (0, 0, 0)) for msg in info]
+                else:
+                    self.info = None
 
     def update(self):
         # render surface onto screen and update screen
         #self.GridSurface.fill((255, 255, 255))
         #self.renderer.render(self.GridSurface)
         self.drawMyMaze()
+        if self.info:
+            y_offset = 100
+            for msg in self.info:
+                self.GridSurface.blit(msg, (850, y_offset))
+                y_offset += 20
         self.GameScreen.blit(self.GridSurface, (0, 0))
         pygame.display.update()
 
@@ -580,7 +613,7 @@ class PygameHandler:
                 if node.start():
                     color1 = (0, 0, 255)
                     color2 = (100, 100, 100)
-                elif node.end():
+                elif node.goal():
                     color1 = (70, 255, 70)
                     color2 = (100, 100, 100)
                 elif not node.walkable():
@@ -610,28 +643,21 @@ class ProcessingThread(threading.Thread):
 
     def run(self):
         print("Entering")
-        maze = self.builder.build()
+        maze = self.builder.build2()
 
-        if self.start_node is None:
-            for y in range(maze.cols):
-                for x in range(maze.rows):
-                    if not maze.node(x, y).blocked() and random() < 0.1:
-                        self.start_node = maze.node(x, y)
-                    break
-                if self.start is not None:
-                    break
+        while self.start_node is None:
+            node = maze.node(randrange(0, maze.cols), randrange(0, maze.rows))
+            if not node.blocked():
+                self.start_node = node
 
-        if self.end_node is None:
-            for y in reversed(range(maze.cols)):
-                for x in reversed(range(maze.rows)):
-                    if not maze.node(x, y).blocked() and random() < 0.1:
-                        self.end_node = maze.node(x, y)
-                    break
-                if self.end_node is not None:
-                    break
+        while self.end_node is None:
+            node = maze.node(randrange(0, maze.cols), randrange(0, maze.rows))
+            if not node.blocked():
+                self.end_node = node
 
         print(self.start_node, self.end_node)
-
+        self.start_node.mark_start()
+        self.end_node.mark_goal()
         self.algorithm.run(maze, self.start_node, self.end_node)
 
 
@@ -682,13 +708,12 @@ def main():
         start = maze_builder.grid.node(args['s_x'], args['s_y'])
         goal = maze_builder.grid.node(args['g_x'], args['g_y'])
         start.mark_start()
-        goal.mark_end()
+        goal.mark_goal()
 
     # if we're visualizing, run the processing in another thread, and run the pygame handler here
     if visual:
         processing_t = ProcessingThread(maze_builder, start, goal, algorithm)
         processing_t.daemon = True    # set as daemon so it dies with the main thread
-        print(processing_t)
         processing_t.start()
         pygame_handler = PygameHandler(maze_builder.grid)
         pygame_handler.run()
