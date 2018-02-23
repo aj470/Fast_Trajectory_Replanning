@@ -14,6 +14,8 @@ import threading
 from random import *
 import sys
 import argparse
+from functools import total_ordering
+from heapq import *
 
 # Convention for the Environment
 # Initialize Grid
@@ -29,211 +31,45 @@ blockwidth = 8  # Drawing dimensions of block
 GridCols = 101   # No of columns
 GridRows = 101   # No of rows
 
-# should these be arrays of rows instead of arrays of columns?
-# does it matter?
-maze = [[0 for y in range(GridCols)] for x in range(GridRows)]
-track_maze = [[0 for y in range(GridCols)] for x in range(GridRows)]
-first_parent_x = 0
-first_parent_y = 0
-last_parent_x = 0
-last_parent_y = 0
 
-#main tree
-tree = {}
+def heuristic(start, goal):
+    # Manhattan distance
+    return abs(start.x - goal.x) + abs(start.y - goal.y)
 
 
-#get the string for the cell location
-def get_String(x,y):
-    return str(x)+","+str(y)
-
-#get the coordinates for the cell.
-def get_coord(cell):
-    li = cell.split(",")
-    return int(li[0]),int(li[1])
-
-#check if the cell is visited or not.
-def is_visited(x,y):
-    if x is None and y is None:
-        return False
-    return track_maze[x][y] == 1
-
-def is_not_visited(x,y):
-    if x is None and y is None:
-        return False
-    return track_maze[x][y] == 0
-
-def is_first(x,y):
-    return x == first_parent_x and y == first_parent_y
-
-# get the key for the value from the tree
-def get_key(value):
-    key_value_dict = {}
-    for a,b in tree.items():
-        for item in b:
-            key_value_dict[str(item)] = str(a)
-    return key_value_dict[value]
-
-def valid_coordinates(x,y):
-    if x is None and y is None:
-        return False
-    return 0<= x <GridRows and 0<= y <GridCols
-
-#get the neighbours for a cell.
-def get_neighbour(x,y,point):
-    if point == 0 and valid_coordinates(x-1,y):
-        return x-1,y
-    if point == 1 and valid_coordinates(x+1,y):
-        return x+1,y
-    if point == 2 and valid_coordinates(x,y-1):
-        return x,y-1
-    if point == 3 and valid_coordinates(x,y+1):
-        return x,y+1
-    return None,None
-
-#check if the cell has neighbours that are not visited.
-def has_validate_neighbour(x,y):
-    tf_value = False
-    if valid_coordinates(x-1,y) and is_not_visited(x-1,y):
-        tf_value = True
-    if valid_coordinates(x+1,y) and is_not_visited(x+1,y):
-        tf_value = True
-    if valid_coordinates(x,y-1) and is_not_visited(x,y-1):
-        tf_value = True
-    if valid_coordinates(x,y+1) and is_not_visited(x,y+1):
-        tf_value = True
-    return tf_value
-
-#get the neighbour for a cell
-def get_validate_neighbour(x,y):
-    if valid_coordinates(x-1,y) and is_not_visited(x-1,y):
-        return x-1, y
-    if valid_coordinates(x+1,y) and is_not_visited(x+1,y):
-        return x+1, y
-    if valid_coordinates(x,y-1) and is_not_visited(x,y-1):
-        return x, y-1
-    if valid_coordinates(x,y+1) and is_not_visited(x,y+1):
-        return x, y+1
-    return tf_value
-
-def label_maze(x,y):
-    if uniform(0,1) < 0.3:
-        maze[x][y] = 0
-    else:
-        maze[x][y] = 1
-
-#build_tree returns last child which was visited
-def build_tree(p_x,p_y):
-    last_p_x = p_x
-    last_p_y = p_y
-
-
-
-    while has_validate_neighbour(p_x,p_y):
-        nn_x,nn_y = get_neighbour(p_x,p_y,randint(0,3))
-        if nn_x is None or nn_y is None or is_visited(nn_x,nn_y):
-            while has_validate_neighbour(p_x,p_y):
-                nn_x,nn_y = get_neighbour(p_x,p_y,randint(0,3))
-                if valid_coordinates(nn_x,nn_y) and not is_visited(nn_x,nn_y):
-                    break
-        if valid_coordinates(nn_x,nn_y) and not is_visited(nn_x,nn_y):
-            tree[get_String(p_x,p_y)] = [get_String(nn_x,nn_y)]
-            track_maze[int(nn_x)][int(nn_y)] = 1
-            last_p_x = nn_x
-            last_p_y = nn_y
-            label_maze(nn_x,nn_y)
-            p_x,p_y = nn_x,nn_y
-
-    return last_p_x, last_p_y
-
-def back_track(last_x,last_y):
-    child_x = last_x
-    child_y = last_y
-    while not is_first(child_x,child_y):
-        parent = get_key(get_String(child_x,child_y))
-        parent_x,parent_y = get_coord(parent)
-        if has_validate_neighbour(parent_x,parent_y):
-            nnn_x,nnn_y = get_validate_neighbour(parent_x,parent_y)
-            if nnn_x is not None and nnn_y is not None and not is_visited(nnn_x,nnn_y):
-                try:
-                    newlist = [item for item in tree[get_String(parent_x,parent_y)]]
-                    newlist.append(get_String(int(nnn_x),int(nnn_y)))
-                    #update the list
-                    tree[get_String(parent_x,parent_y)] = newlist
-                    track_maze[int(nnn_x)][int(nnn_y)] = 1
-                    label_maze(nnn_x,nnn_y)
-                except:
-                    tree[get_String(parent_x,parent_y)] = [get_String(int(nnn_x),int(nnn_y))]
-                    track_maze[int(nnn_x)][int(nnn_y)] = 1
-                    label_maze(nnn_x,nnn_y)
-                return get_String(int(nnn_x),int(nnn_y))
-        child_x,child_y = parent_x,parent_y
-    return None
-#generateStartFinish()
-
-# Make Random Grid Visual
-def makeGrid():
-    i = 0
-    gn_x = None
-    gn_y = None
-    p_x = None
-    p_y = None
-    while True:
-        if gn_x != None and gn_y != None:
-            print("first")
-            break
-        p_x = randint(0,GridCols-1)
-        p_y = randint(0,GridRows-1)
-        global first_parent_x
-        first_parent_x = p_x
-        global first_parent_y
-        first_parent_y = p_y
-        ra = randint(0,3)
-        gn_x,gn_y = get_neighbour(p_x,p_y,ra) #get neighbor
-
-    track_maze[p_x][p_y] = 1
-    track_maze[gn_x][gn_y] = 1
-    label_maze(p_x,p_y)
-    label_maze(gn_x,gn_y)
-    tree[str(p_x)+","+str(p_y)] = [get_String(gn_x,gn_y)]
-    p_x,p_y = gn_x,gn_y
-
-    while True:
-        new_x,new_y = build_tree(p_x,p_y)
-        global last_parent_x
-        global last_parent_y
-        if last_parent_x == new_x and last_parent_y == new_y:
-            break
-
-        last_parent_x = new_x
-        last_parent_y = new_y
-
-        if new_x == first_parent_x and new_y == first_parent_y:
-            break
-
-        if valid_coordinates(int(new_x),int(new_y)):
-            new_parent = back_track(new_x,new_y)
-            if new_parent:
-                new_px,new_py = get_coord(new_parent)
-                p_x,p_y = new_px,new_py
-                if p_x == first_parent_x and p_y == first_parent_y:
-                    break
-            if new_parent is None:
-                break
-
-
+@total_ordering
 class Node:
     def __init__(self, x, y):
         self.x = x
         self.y = y
+        self.parent = None
+        self._search = 0
         self._visited = False
         self._blocked = False
-        self.g = sys.maxsize
-        self.h = 0
+        self._g = sys.maxsize
+
+    def search(self, news=None):
+        if news is not None:
+            self._search = news
+        else:
+            return self._search
+
+    def g(self, newg=None):
+        if newg is not None:
+            self._g = newg
+        else:
+            return self._g
+
+    def h(self):
+        global end
+        return heuristic(self, end)
+
+    def f(self):
+        return self.g() + self.h()
 
     def reset(self):
         self._visited = False
-        self.g = sys.maxsize
-        self.h = 0
+        self._g = sys.maxsize
 
     def visit(self):
         self._visited = True
@@ -256,14 +92,20 @@ class Node:
 
     def __eq__(self, other):
         if isinstance(other, Node):
-            return self.x == other.x and self.y == other.y
+            return self.x == other.x and self.y == other.y and self.f() == other.f()
         return False
 
     def __ne__(self, other):
         return not self == other
 
+    def __lt__(self, other):
+        if isinstance(other, Node):
+            return self.f() < other.f()
+        raise ValueError("Object must be of type Node not '%s'" % str(type(other)))
+
     def __repr__(self):
         return "Node<%d, %d>" % (self.x, self.y)
+
 
 
 class Grid:
@@ -529,12 +371,13 @@ class AgentAlgorithm:
     def compute_path(self, goal, open_list):
         raise NotImplemented()
 
-    def manhattan_distance(self, node, end):
-        return abs(end.x - node.x) + abs(end.y - node.y)
+    def cost(self, node, next):
+        if not next.walkable():
+            return sys.maxsize
+        else:
+            return 1
 
     def run(self, start, end):
-        open_list = [] # !!!! this should be a binary heap
-        open_list.append(start)
         self.agent = start
         self.counter = 0
         clock = pygame.time.Clock()
@@ -543,15 +386,20 @@ class AgentAlgorithm:
             # visit all neighbors
             neighbor.visit()
 
-        while self.agent != end and len(open_list) != 0:
+        while self.agent != end:
             self.counter += 1
-            path = self.compute_path(end, open_list)
+            self.agent.g(0)
+            self.agent.search(self.counter)
+            end.g(sys.maxsize)
+            end.search(self.counter)
+
+            path = self.compute_path(start, end)
             # path should be a list of nodes leading from agent to goal
             if len(path) == 0:
                 return False
 
             for node in path:
-                #clock.tick(60)
+                clock.tick(60)
                 # for each node in the path
                 if node.walkable():
                     self.agent = node
@@ -568,30 +416,30 @@ class AgentAlgorithm:
 
 
 class RandomAlgorithm(AgentAlgorithm):
-    def compute_path(self, goal, open_list):
+    def compute_path(self, start, goal):
         neighbors = self.grid.neighbors(self.agent)
         return [neighbors[randrange(0, len(neighbors))]]
 
 
 class DFSAlgorithm(AgentAlgorithm):
 
-    def compute_path(self, goal, open_list):
+    def compute_path(self, start, goal):
         for row in self.grid.maze:
             for node in row:
-                node.g = sys.maxsize
+                node.g(sys.maxsize)
 
         current = self.agent
-        current.g = 0
+        current.g(0)
         options = []
         path = []
 
         while current != goal:
             for neighbor in self.grid.neighbors(current):
-                if neighbor.g > current.g + 1 and neighbor.walkable():
+                if neighbor.g() > current.g() + 1 and neighbor.walkable():
                     options.append(neighbor)
-                    neighbor.g = current.g + 1
+                    neighbor.g(current.g() + 1)
 
-            current = min(options, key=lambda x: x.g)
+            current = min(options, key=lambda x: x.g())
             options.remove(current)
 
         path.append(current)
@@ -600,11 +448,11 @@ class DFSAlgorithm(AgentAlgorithm):
         # backtrack from goal to agent
         while current != self.agent:
             neighbors = self.grid.neighbors(current)
-            options = sorted(neighbors, key=lambda x: x.g)
+            options = sorted(neighbors, key=lambda x: x.g())
             if len(options) == 0:
                 # no path can be found
                 return []
-            if options[0].g == sys.maxsize:
+            if options[0].g() == sys.maxsize:
                 # no path was traced all the way to here
                 return []
 
@@ -615,13 +463,47 @@ class DFSAlgorithm(AgentAlgorithm):
         return path
 
 
+class AStarAlgorithm(AgentAlgorithm):
+
+    def compute_path(self, start, goal):
+        open_list = [start]
+        path = []
+
+        while goal.g() > open_list[0].f():
+            current = heappop(open_list)
+            for neighbor in self.grid.neighbors(current):
+                if neighbor.search() < self.counter:
+                    neighbor.g(sys.maxsize)
+                    neighbor.search(self.counter)
+                if current.g() + self.cost(current, neighbor) < neighbor.g():
+                    neighbor.g(current.g() + self.cost(current, neighbor))
+                    neighbor.parent = current
+
+                    if neighbor in open_list:
+                        open_list.remove(neighbor)
+                        heapify(open_list)
+                    heappush(open_list, neighbor)
+
+        if len(open_list) == 0:
+            return []
+
+        current = goal
+        # backtrack from goal to agent
+        while current != self.agent:
+            path.append(current.parent)
+            current = current.parent
+
+        path.reverse()
+        return path
+
+
 # having this as a global is kinda weird and makes for weird code
 # I tried to make it not global and couldn't get it quite right so I gave up
 # feel free to try if it becomes inconvenient to you
 mazeBuilder = MazeBuilder(GridRows, GridCols, maze_seed=40)
-algorithm = RandomAlgorithm(mazeBuilder.grid)
-start = mazeBuilder.grid.node(4, 0)
-end = mazeBuilder.grid.node(98, 100)
+algorithm = AStarAlgorithm(mazeBuilder.grid)
+start = mazeBuilder.grid.node(3, 0)
+end = mazeBuilder.grid.node(97, 100)
 
 
 class ProcessingThread(LoopingThread):
@@ -631,7 +513,7 @@ class ProcessingThread(LoopingThread):
         global start
         global end
 
-        maze = mazeBuilder.build2()
+        maze = mazeBuilder.build()
         algorithm.run(start, end)
         self.stop()
 
