@@ -367,6 +367,7 @@ class AgentAlgorithm:
         clock = pygame.time.Clock()
         agent = start
         agent.visit()
+        final_path = []
 
         for neighbor in grid.neighbors(agent):
             # visit all neighbors
@@ -381,6 +382,9 @@ class AgentAlgorithm:
 
             # path = self.compute_path2(self.grid, start, end, [start], self.counter)
             path = self.compute_path(grid, agent, end)
+
+            for node in final_path:
+                node.color((150, 0, 0))
             # path should be a list of nodes leading from agent to goal
             if len(path) == 0:
                 return False
@@ -390,6 +394,7 @@ class AgentAlgorithm:
                     clock.tick(60)
                 # for each node in the path
                 if node.walkable():
+                    final_path.append(node)
                     agent = node
                     agent.color((150, 0, 0))
                     # if we can move to it, move to it and visit neighbors
@@ -658,15 +663,19 @@ class ProcessingThread(threading.Thread):
         print("Entering actual algorithm execution")
         maze = self.builder.build2()
 
+        half_h = int(maze.rows / 2)
+        start_half = randrange(0, 2)  # randomly pick either top half or bottom half
+        end_half = 1 - start_half
+
         while self.start_node is None:
             # pick a starting point in the leftmost quarter of the board
-            node = maze.node(randrange(0, int(maze.cols/4)), randrange(0, maze.rows))
+            node = maze.node(randrange(0, int(maze.cols/4)), randrange(start_half*half_h, (start_half+1)*half_h))
             if not node.blocked():
                 self.start_node = node
 
         while self.end_node is None:
             # pick an ending point in the rightmost quarter of the board
-            node = maze.node(randrange(int(3*maze.cols/4), maze.cols), randrange(0, maze.rows))
+            node = maze.node(randrange(int(3*maze.cols/4), maze.cols), randrange(end_half*half_h, (end_half+1)*half_h))
             if not node.blocked():
                 self.end_node = node
 
