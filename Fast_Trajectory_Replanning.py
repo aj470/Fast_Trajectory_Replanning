@@ -14,6 +14,7 @@ import sys
 import argparse
 from functools import total_ordering
 from heapq import *
+from pympler import tracker
 
 # Convention for the Environment
 # Initialize Grid
@@ -199,8 +200,8 @@ class MazeBuilder:
         clock = pygame.time.Clock()
 
         while not finished:
-            #if self.limit:
-            #   clock.tick(100)
+            if self.limit:
+              clock.tick(100)
             next_node = self.random_neighbor(current)
             if not next_node and current == start_node:
                 # we're back at the start with nowhere else to explore
@@ -242,13 +243,22 @@ class MazeBuilder:
 
         while not finished:
             if self.limit:
-                clock.tick(60)
+                clock.tick(100)
             extended_neighbors = [
                 self.grid.node(current.x, current.y - 2),
                 self.grid.node(current.x, current.y + 2),
                 self.grid.node(current.x - 2, current.y),
                 self.grid.node(current.x + 2, current.y)
             ]
+
+            possible_bridge = list(filter(lambda x: x and not x.blocked(), extended_neighbors))
+            # chance we create a bridge between two tunnels
+            # this prevents there from being precisely 1 path between any two points
+            if len(possible_bridge) > 0 and random() < 0.1:
+                node = possible_bridge[0]
+                middle = self.grid.node(int((current.x + node.x) / 2), int((current.y + node.y) / 2))
+                middle.unblock()
+
             # get only extended neighbors that exist and are blocked (meaning we can unblock them)
             extended_neighbors = list(filter(lambda x: x and x.blocked(), extended_neighbors))
 
@@ -267,6 +277,7 @@ class MazeBuilder:
             middle.unblock()
             backtrace.append(current)
             current = node
+        return self.grid
 
 
 class AgentAlgorithm:
@@ -312,7 +323,6 @@ class AgentAlgorithm:
                     clock.tick(60)
                 # for each node in the path
                 if node.walkable():
-                    agent.color(None)
                     agent = node
                     agent.color((150, 0, 0))
                     # if we can move to it, move to it and visit neighbors
@@ -322,7 +332,7 @@ class AgentAlgorithm:
                     break
 
         if agent == end:
-            print("Got to the end in %d iterations" % self.counter)
+            print("Got to the goal in %d iteration%s" % (self.counter, 's' if self.counter > 1 else ''))
         else:
             print("Did not make it")
 
@@ -431,9 +441,11 @@ class AStarAlgorithm(AgentAlgorithm):
 
         i = 0
         while goal.g() > open_list[0].f():
-            i += 1
-            print(i)
+            # i += 1
+            # print(i)
             current = heappop(open_list)
+            current.color((0, min(255, current.f()), 0))
+            print(current.f())
             for neighbor in grid.neighbors(current):
                 if neighbor.search() < self.counter:
                     neighbor.g(sys.maxsize)
@@ -596,7 +608,7 @@ class ProcessingThread(threading.Thread):
 
     def run(self):
         print("Entering")
-        maze = self.builder.build()
+        maze = self.builder.build2()
 
         if self.start_node is None:
             for y in range(maze.cols):
@@ -621,6 +633,14 @@ class ProcessingThread(threading.Thread):
         self.algorithm.run(maze, self.start_node, self.end_node)
 
 
+"""
+For running the program:
+    Stick with Fast_Trajectory_Replanning.py -la -v 1 4 3 0 97 100
+    
+    The -la tells the code to limit the speed of the algorithm. You can also use -lg to limit the speed of the
+    map generation. -v tells the code to visualize it with Pygame. The 1 is algorithm selection, 4 is the map number
+    (and for map number, I just multiply by 10 to get a seed) and the remaining are starting and ending coordinates. 
+"""
 def main():
     parser = argparse.ArgumentParser(description="CS440 Project 1 -- Fast_Trajectory_Replanning")
     parser.add_argument("Algorithm", type=int, choices=[1, 2, 3], help="1. A* forward, 2. A* backward, 3. Adaptive A*")
@@ -631,7 +651,9 @@ def main():
     parser.add_argument("g_y", type=int, help="Goal_y")
     parser.add_argument("-r", "--random", help="Fully Random", action='store_true')
     parser.add_argument("-v", "--visual", help="Visualize", action='store_true')
-    parser.add_argument("-l", "--limit", help="Whether or not to limit algorithm speed for visualization",
+    parser.add_argument("-la", "--limit_algorithm", help="Whether or not to limit algorithm speed for visualization",
+                        action='store_true')
+    parser.add_argument("-lg", "--limit_generation", help="Whether or not to limit generation speed for visualization",
                         action='store_true')
 
     args = vars(parser.parse_args())
@@ -643,15 +665,18 @@ def main():
     goal = None
 
     visual = args['visual']
-    limit = args['limit']
+    limit_a = args['limit_algorithm']
+    limit_g = args['limit_generation']
 
-    algorithms = [AStarAlgorithm(limit)]   # populate this array with algorithms corresponding to the argument options
+    tr = tracker.SummaryTracker()
+
+    algorithms = [AStarAlgorithm(limit_a)]   # populate this array with algorithms corresponding to the argument options
     algorithm = algorithms[args['Algorithm'] - 1]
 
     if args['random']:
-        maze_builder = MazeBuilder(GridRows, GridCols, limit=limit)
+        maze_builder = MazeBuilder(GridRows, GridCols, limit=limit_g)
     else:
-        maze_builder = MazeBuilder(GridRows, GridCols, maze_seed=args["T"]*10, limit=limit)
+        maze_builder = MazeBuilder(GridRows, GridCols, maze_seed=args["T"]*10, limit=limit_g)
         start = maze_builder.grid.node(args['s_x'], args['s_y'])
         goal = maze_builder.grid.node(args['g_x'], args['g_y'])
         start.mark_start()
@@ -669,6 +694,8 @@ def main():
         # otherwise, we run the processing in the main thread
         processing_t = ProcessingThread(maze_builder, start, goal, algorithm)
         processing_t.run()
+
+    tr.print_diff()
 
 
 if __name__ == "__main__":
