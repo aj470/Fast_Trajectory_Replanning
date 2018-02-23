@@ -15,6 +15,7 @@ import argparse
 from functools import total_ordering
 from heapq import *
 from pympler import tracker
+from time import sleep
 
 # Convention for the Environment
 # Initialize Grid
@@ -444,8 +445,9 @@ class AStarAlgorithm(AgentAlgorithm):
             # i += 1
             # print(i)
             current = heappop(open_list)
-            current.color((0, min(255, current.f()), 0))
-            print(current.f())
+            current.color((100, 0, min(255, current.g())))
+            if self.limit:
+                sleep(0.005)
             for neighbor in grid.neighbors(current):
                 if neighbor.search() < self.counter:
                     neighbor.g(sys.maxsize)
@@ -608,7 +610,7 @@ class ProcessingThread(threading.Thread):
 
     def run(self):
         print("Entering")
-        maze = self.builder.build2()
+        maze = self.builder.build()
 
         if self.start_node is None:
             for y in range(maze.cols):
