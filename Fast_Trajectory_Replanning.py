@@ -1,25 +1,22 @@
 #!/usr/bin/python3
 
-#Assginment 1: Fast Trajectory Replanning
-#CS 440: Intro to Artificial Intelligence
-#Due date: 26th Feburary 2018
-#authors: Ayush Joshi, Nikhil Mathur, and Dan Snyder
 
-import heapq
+# Assignment 1: Fast Trajectory Re-planning
+# CS 440: Intro to Artificial Intelligence
+# Due date: 26th February 2018
+# authors: Ayush Joshi, Nikhil Mathur, and Dan Snyder
+
 import pygame
 from pygame.locals import *
-import os
-import math
-import time
-import signal
 import threading
 from random import *
-from random import random, uniform
-from ast import literal_eval as make_tuple
 import sys
 import argparse
+from functools import total_ordering
+from heapq import *
+from pympler import tracker
 
-#Convention for the Environment
+# Convention for the Environment
 # Initialize Grid
 # 0 is blocked and 1 is unblocked for track_maze
 # 0 is unvisited and 1 is visited for track_maze
@@ -29,230 +26,488 @@ import argparse
 
 # Initialize Variables
 
-blockwidth = 8  # Drawing dimensions of block
-GridCols = 101   # No of columns
-GridRows = 101   # No of rows
+block_width = 8  # Drawing dimensions of block
+GridCols = 101  # No of columns
+GridRows = 101  # No of rows
 
-# should these be arrays of rows instead of arrays of columns?
-# does it matter?
-maze = [[0 for y in range(GridCols)] for x in range(GridRows)]
-track_maze = [[0 for y in range(GridCols)] for x in range(GridRows)]
-first_parent_x = 0
-first_parent_y = 0
-last_parent_x = 0
-last_parent_y = 0
 
-#main tree
-tree = {}
+def heuristic(start, goal):
+    # Manhattan distance
+    return abs(start.x - goal.x) + abs(start.y - goal.y)
 
-#get the string for the cell location
-def get_String(x,y):
-    return str(x)+","+str(y)
 
-#get the coordinates for the cell.
-def get_coord(cell):
-    li = cell.split(",")
-    return int(li[0]),int(li[1])
+@total_ordering
+class Node:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.parent = None
+        self._search = 0
+        self._visited = False
+        self._blocked = False
+        self._g = sys.maxsize
+        self._h = sys.maxsize
+        self._start = False
+        self._end = False
+        self._color = None
 
-#check if the cell is visited or not.
-def is_visited(x,y):
-    if x is None and y is None:
+    def start(self):
+        return self._start
+
+    def end(self):
+        return self._end
+
+    def mark_start(self):
+        self._start = True
+
+    def mark_end(self):
+        self._end = True
+
+    def color(self, newc=None):
+        if newc is not None:
+            self._color = newc
+        else:
+            return self._color
+
+    def search(self, news=None):
+        if news is not None:
+            self._search = news
+        else:
+            return self._search
+
+    def g(self, newg=None):
+        if newg is not None:
+            self._g = newg
+        else:
+            return self._g
+
+    def h(self, goal=None):
+        if goal is not None:
+            self._h = heuristic(self, goal)
+        else:
+            return self._h
+
+    def f(self):
+        return self.g() + self.h()
+
+    def reset(self):
+        self._visited = False
+        self._g = sys.maxsize
+
+    def visit(self):
+        self._visited = True
+
+    def block(self):
+        self._blocked = True
+
+    def unblock(self):
+        self._blocked = False
+
+    def visited(self):
+        return self._visited
+
+    def blocked(self):
+        return self._blocked
+
+    def walkable(self):
+        # this is to be used for the path finding algorithm to account for fog of war
+        return not self.visited() or (self.visited() and not self.blocked())
+
+    def __eq__(self, other):
+        if isinstance(other, Node):
+            return self.x == other.x and self.y == other.y
         return False
-    return track_maze[x][y] == 1
 
-def is_not_visited(x,y):
-    if x is None and y is None:
-        return False
-    return track_maze[x][y] == 0
+    def __ne__(self, other):
+        return not self == other
 
-def is_first(x,y):
-    return x == first_parent_x and y == first_parent_y
+    def __lt__(self, other):
+        if isinstance(other, Node):
+            return self.f() < other.f()
+        raise ValueError("Object must be of type Node not '%s'" % str(type(other)))
 
-# get the key for the value from the tree
-def get_key(value):
-    key_value_dict = {}
-    for a,b in tree.items():
-        for item in b:
-            key_value_dict[str(item)] = str(a)
-    return key_value_dict[value]
+    def __repr__(self):
+        return "Node<%d, %d>" % (self.x, self.y)
 
-def valid_coordinates(x,y):
-    if x is None and y is None:
-        return False
-    return 0<= x <GridRows and 0<= y <GridCols
 
-#get the neighbours for a cell.
-def get_neighbour(x,y,point):
-    if point == 0 and valid_coordinates(x-1,y):
-        return x-1,y
-    if point == 1 and valid_coordinates(x+1,y):
-        return x+1,y
-    if point == 2 and valid_coordinates(x,y-1):
-        return x,y-1
-    if point == 3 and valid_coordinates(x,y+1):
-        return x,y+1
-    return None,None
+class Grid:
+    def __init__(self, rows, cols):
+        self.rows = rows
+        self.cols = cols
+        self.maze = [[Node(x, y) for x in range(cols)] for y in range(rows)]
 
-#check if the cell has neighbours that are not visited.
-def has_validate_neighbour(x,y):
-    tf_value = False
-    if valid_coordinates(x-1,y) and is_not_visited(x-1,y):
-        tf_value = True
-    if valid_coordinates(x+1,y) and is_not_visited(x+1,y):
-        tf_value = True
-    if valid_coordinates(x,y-1) and is_not_visited(x,y-1):
-        tf_value = True
-    if valid_coordinates(x,y+1) and is_not_visited(x,y+1):
-        tf_value = True
-    return tf_value
+    def node(self, x, y):
+        if x < 0 or x >= self.rows:
+            return None
+        if y < 0 or y >= self.cols:
+            return None
+        return self.maze[y][x]
 
-#get the neighbour for a cell
-def get_validate_neighbour(x,y):
-    if valid_coordinates(x-1,y) and is_not_visited(x-1,y):
-        return x-1, y
-    if valid_coordinates(x+1,y) and is_not_visited(x+1,y):
-        return x+1, y
-    if valid_coordinates(x,y-1) and is_not_visited(x,y-1):
-        return x, y-1
-    if valid_coordinates(x,y+1) and is_not_visited(x,y+1):
-        return x, y+1
-    return tf_value
+    def neighbors(self, node):
+        neighbors = [
+                self.node(node.x, node.y-1),
+                self.node(node.x, node.y+1),
+                self.node(node.x-1, node.y),
+                self.node(node.x+1, node.y)]
+        return tuple(filter(lambda n: n, neighbors))
 
-def label_maze(x,y):
-    if uniform(0,1) < 0.3:
-        maze[x][y] = 0
-    else:
-        maze[x][y] = 1
+    def down(self, node):
+        return self.node(node.x, node.y+1)
 
-#build_tree returns last child which was visited
-def build_tree(p_x,p_y):
-    last_p_x = p_x
-    last_p_y = p_y
+    def up(self, node):
+        return self.node(node.x, node.y-1)
 
-    while has_validate_neighbour(p_x,p_y):
-        nn_x,nn_y = get_neighbour(p_x,p_y,randint(0,3))
-        if nn_x is None or nn_y is None or is_visited(nn_x,nn_y):
-            while has_validate_neighbour(p_x,p_y):
-                nn_x,nn_y = get_neighbour(p_x,p_y,randint(0,3))
-                if valid_coordinates(nn_x,nn_y) and not is_visited(nn_x,nn_y):
+    def left(self, node):
+        return self.node(node.x-1, node.y)
+
+    def right(self, node):
+        return self.node(node.x+1, node.y)
+
+
+class MazeBuilder:
+    def __init__(self, rows, cols, maze_seed=None, limit=False):
+        if maze_seed:
+            seed(maze_seed)
+        self.rows = rows
+        self.cols = cols
+        self.grid = Grid(rows, cols)
+        self.limit = limit
+
+    @staticmethod
+    def init_node(node):
+        node.visit()
+        if random() < 0.3:
+            node.block()
+            return False
+        return True
+
+    def random_neighbor(self, node):
+        options = list(filter(lambda x: not x.visited(), self.grid.neighbors(node)))
+        if len(options) == 0:
+            return None
+
+        return options[randrange(0, len(options))]
+
+    def build(self):
+        backtrace = []
+        start_x = randrange(0, self.cols)
+        start_y = randrange(0, self.rows)
+        finished = False
+        start_node = self.grid.node(start_x, start_y)
+        current = start_node
+        current.visit()
+
+        clock = pygame.time.Clock()
+
+        while not finished:
+            if self.limit:
+              clock.tick(100)
+            next_node = self.random_neighbor(current)
+            if not next_node and current == start_node:
+                # we're back at the start with nowhere else to explore
+                finished = True
+            elif not next_node:
+                # reached a dead end -- begin back tracking
+                current = backtrace.pop()
+            elif next_node and self.init_node(next_node):
+                # there is an unblocked node to move to -- move to it
+                backtrace.append(current)
+                current = next_node
+            else:
+                # otherwise, there was a valid neighbor, but it is now blocked
+                continue
+
+        for row in self.grid.maze:
+            # mark all unvisited nodes as blocked
+            for node in row:
+                if not node.visited():
+                    node.block()
+                node.reset()
+        print("finished generating")
+        return self.grid
+
+    def build2(self):
+        for row in self.grid.maze:
+            for node in row:
+                node.block()
+
+        backtrace = []
+        start_x = randrange(0, self.cols)
+        start_y = randrange(0, self.rows)
+        finished = False
+        start_node = self.grid.node(start_x, start_y)
+        current = start_node
+        current.unblock()
+
+        clock = pygame.time.Clock()
+
+        while not finished:
+            if self.limit:
+                clock.tick(100)
+            extended_neighbors = [
+                self.grid.node(current.x, current.y - 2),
+                self.grid.node(current.x, current.y + 2),
+                self.grid.node(current.x - 2, current.y),
+                self.grid.node(current.x + 2, current.y)
+            ]
+
+            possible_bridge = list(filter(lambda x: x and not x.blocked(), extended_neighbors))
+            # chance we create a bridge between two tunnels
+            # this prevents there from being precisely 1 path between any two points
+            if len(possible_bridge) > 0 and random() < 0.1:
+                node = possible_bridge[0]
+                middle = self.grid.node(int((current.x + node.x) / 2), int((current.y + node.y) / 2))
+                middle.unblock()
+
+            # get only extended neighbors that exist and are blocked (meaning we can unblock them)
+            extended_neighbors = list(filter(lambda x: x and x.blocked(), extended_neighbors))
+
+            if len(extended_neighbors) == 0 and len(backtrace) == 0:
+                finished = True
+                continue
+            elif len(extended_neighbors) == 0:
+                # if we have no extended neighbors to move to, backtrack
+                current = backtrace.pop()
+                continue
+
+            node = extended_neighbors[randrange(0, len(extended_neighbors))]
+            # we can move to this node
+            node.unblock()
+            middle = self.grid.node(int((current.x+node.x)/2), int((current.y+node.y)/2))
+            middle.unblock()
+            backtrace.append(current)
+            current = node
+        return self.grid
+
+
+class AgentAlgorithm:
+    def __init__(self, limit):
+        self.counter = 0
+        self.limit = limit
+
+    def compute_path(self, grid, goal, open_list):
+        raise NotImplemented()
+
+    @staticmethod
+    def cost(node, next_b):
+        if next_b.blocked():
+            return sys.maxsize
+        else:
+            return 1
+
+    def run(self, grid, start, end):
+        self.counter = 0
+        clock = pygame.time.Clock()
+        agent = start
+        agent.visit()
+
+        for neighbor in grid.neighbors(agent):
+            # visit all neighbors
+            neighbor.visit()
+
+        while agent != end:
+            self.counter += 1
+            agent.g(0)
+            agent.search(self.counter)
+            end.g(sys.maxsize)
+            end.search(self.counter)
+
+            # path = self.compute_path2(self.grid, start, end, [start], self.counter)
+            path = self.compute_path(grid, agent, end)
+            # path should be a list of nodes leading from agent to goal
+            if len(path) == 0:
+                return False
+
+            for node in path:
+                if self.limit:
+                    clock.tick(60)
+                # for each node in the path
+                if node.walkable():
+                    agent = node
+                    agent.color((150, 0, 0))
+                    # if we can move to it, move to it and visit neighbors
+                    for neighbor in grid.neighbors(agent):
+                        neighbor.visit()
+                else:
                     break
-        if valid_coordinates(nn_x,nn_y) and not is_visited(nn_x,nn_y):
-            tree[get_String(p_x,p_y)] = [get_String(nn_x,nn_y)]
-            track_maze[int(nn_x)][int(nn_y)] = 1
-            last_p_x = nn_x
-            last_p_y = nn_y
-            label_maze(nn_x,nn_y)
-            p_x,p_y = nn_x,nn_y
 
-    return last_p_x, last_p_y
+        if agent == end:
+            print("Got to the goal in %d iteration%s" % (self.counter, 's' if self.counter > 1 else ''))
+        else:
+            print("Did not make it")
 
-def back_track(last_x,last_y):
-    child_x = last_x
-    child_y = last_y
-    while not is_first(child_x,child_y):
-        parent = get_key(get_String(child_x,child_y))
-        parent_x,parent_y = get_coord(parent)
-        if has_validate_neighbour(parent_x,parent_y):
-            nnn_x,nnn_y = get_validate_neighbour(parent_x,parent_y)
-            if nnn_x is not None and nnn_y is not None and not is_visited(nnn_x,nnn_y):
-                try:
-                    newlist = [item for item in tree[get_String(parent_x,parent_y)]]
-                    newlist.append(get_String(int(nnn_x),int(nnn_y)))
-                    #update the list
-                    tree[get_String(parent_x,parent_y)] = newlist
-                    track_maze[int(nnn_x)][int(nnn_y)] = 1
-                    label_maze(nnn_x,nnn_y)
-                except:
-                    tree[get_String(parent_x,parent_y)] = [get_String(int(nnn_x),int(nnn_y))]
-                    track_maze[int(nnn_x)][int(nnn_y)] = 1
-                    label_maze(nnn_x,nnn_y)
-                return get_String(int(nnn_x),int(nnn_y))
-        child_x,child_y = parent_x,parent_y
-    return None
-#generateStartFinish()
+    def compute_path2(self, grid, start, goal, open_list, counter):
+        reached = False
+        current = open_list[0]
+        neighbors = grid.neighbors(current)
 
-# Make Random Grid Visual
-def makeGrid():
-    i = 0
-    gn_x = None
-    gn_y = None
-    p_x = None
-    p_y = None
-    while True:
-        if gn_x != None and gn_y != None:
-            print("first")
-            break
-        p_x = randint(0,GridCols-1)
-        p_y = randint(0,GridRows-1)
-        global first_parent_x
-        first_parent_x = p_x
-        global first_parent_y
-        first_parent_y = p_y
-        ra = randint(0,3)
-        gn_x,gn_y = get_neighbour(p_x,p_y,ra) #get neighbor
+        while goal.g() > current.f():
+            heappop(open_list)
 
-    track_maze[p_x][p_y] = 1
-    track_maze[gn_x][gn_y] = 1
-    label_maze(p_x,p_y)
-    label_maze(gn_x,gn_y)
-    tree[str(p_x)+","+str(p_y)] = [get_String(gn_x,gn_y)]
-    p_x,p_y = gn_x,gn_y
+            if len(neighbors) == 0:
+                return []
 
-    while True:
-        new_x,new_y = build_tree(p_x,p_y)
-        print("build returns",new_x,new_y)
-        global last_parent_x
-        global last_parent_y
-        if last_parent_x == new_x and last_parent_y == new_y:
-            break
+            for node in neighbors:
+                if node.search() < counter:
+                    node.search(counter)
+                    node.g(sys.maxsize)
 
-        last_parent_x = new_x
-        last_parent_y = new_y
+                if node.blocked():
+                    continue
 
-        if new_x == first_parent_x and new_y == first_parent_y:
-            break
-
-        if valid_coordinates(int(new_x),int(new_y)):
-            new_parent = back_track(new_x,new_y)
-            print("Back track found", new_parent)
-            if new_parent:
-                new_px,new_py = get_coord(new_parent)
-                p_x,p_y = new_px,new_py
-                if p_x == first_parent_x and p_y == first_parent_y:
-                    break
-            if new_parent is None:
+                if node.g() > current.g() + 1:
+                    node.g(start.g() + 1)
+                    node.parent = current
+                    if node == goal:
+                        goal = node
+                        heappush(open_list, node)
+                        reached = True
+                        break
+                    heappush(open_list, node)
+            if reached:
                 break
 
+            if len(open_list) != 0:
+                current = open_list[0]
+                neighbors = grid.neighbors(current)
+            else:
+                break
 
-class LoopingThread(threading.Thread):
+        path = []
+        current = goal
+        # backtrack from goal to agent
+        while current != start:
+            path.append(current)
+            current = current.parent
+
+        path.reverse()
+        return path
+
+
+class RandomAlgorithm(AgentAlgorithm):
+    def compute_path(self, grid, start, goal):
+        neighbors = start.neighbors(start)
+        return [neighbors[randrange(0, len(neighbors))]]
+
+
+class DFSAlgorithm(AgentAlgorithm):
+
+    def compute_path(self, grid, start, goal):
+        for row in grid.maze:
+            for node in row:
+                node.g(sys.maxsize)
+
+        current = start
+        current.g(0)
+        options = []
+        path = []
+
+        while current != goal:
+            for neighbor in grid.neighbors(current):
+                if neighbor.g() > current.g() + 1 and neighbor.walkable():
+                    options.append(neighbor)
+                    neighbor.g(current.g() + 1)
+
+            current = min(options, key=lambda x: x.g())
+            options.remove(current)
+
+        path.append(current)
+
+        current = goal
+        # backtrack from goal to agent
+        while current != start:
+            neighbors = grid.neighbors(current)
+            options = sorted(neighbors, key=lambda x: x.g())
+            if len(options) == 0:
+                # no path can be found
+                return []
+            if options[0].g() == sys.maxsize:
+                # no path was traced all the way to here
+                return []
+
+            path.append(options[0])
+            current = options[0]
+
+        path.reverse()
+        return path
+
+
+class AStarAlgorithm(AgentAlgorithm):
+
+    def compute_path(self, grid, start, goal):
+        start.h(goal)
+        open_list = [start]
+        path = []
+
+        i = 0
+        while goal.g() > open_list[0].f():
+            # i += 1
+            # print(i)
+            current = heappop(open_list)
+            current.color((0, min(255, current.f()), 0))
+            print(current.f())
+            for neighbor in grid.neighbors(current):
+                if neighbor.search() < self.counter:
+                    neighbor.g(sys.maxsize)
+                    neighbor.search(self.counter)
+                if current.g() + self.cost(current, neighbor) < neighbor.g():
+                    neighbor.g(current.g() + self.cost(current, neighbor))
+                    neighbor.parent = current
+
+                    if neighbor in open_list:
+                        open_list.remove(neighbor)
+                        heapify(open_list)
+
+                    neighbor.h(goal)
+                    heappush(open_list, neighbor)
+
+        if len(open_list) == 0:
+            return []
+
+        current = goal
+        # backtrack from goal to agent
+        while current != start:
+            path.append(current)
+            current = current.parent
+
+        path.reverse()
+        return path
+
+# This code is currently unused -- probably won't use it.
+class Renderable:
     def __init__(self):
-        super().__init__()
-        self.running = False
+        self._alive = True
 
-    def run(self):
-        self.running = True
-        while self.running:
-            self.execute()
-        self.shutdown()
+    def is_alive(self):
+        return self._alive
 
-    def stop(self):
-        self.running = False
+    def kill(self):
+        self._alive = False
 
-    def shutdown(self):
-        # code to execute once the thread has stopped
-        pass
-
-    def execute(self):
-        # code to execute each time the thread loops -- MUST be implemented
+    def render(self, screen):
         raise NotImplemented()
 
 
-class DummyThread(LoopingThread):
-    def execute(self):
-        self.stop()
+class Renderer:
+    def __init__(self):
+        self._objs = set()
+
+    def add(self, obj):
+        if not isinstance(obj, Renderable):
+            raise ValueError()
+
+        self._objs.add(obj)
+
+    def render(self, screen):
+        dead = set()
+        for obj in self._objs:
+            if not obj.is_alive():
+                dead.add(obj)
+
+        self._objs = self._objs.difference(dead)
 
 
-class PygameThread(LoopingThread):
+class PygameHandler:
     """class handles all things Pygame. It has a main loop that both renders the screen and
     processes user input. If the user chooses not to visualize the process then no user input
     should be processed by Pygame. If they want to stop, the use ctrl+C. This thread gets all
@@ -261,26 +516,33 @@ class PygameThread(LoopingThread):
     can add semaphores or timed leases for accessing global data that will have minimal overhead.
     """
 
-    FRAME_RATE = 60 # in frames per second
+    FRAME_RATE = 30  # in frames per second
 
-    def __init__(self):
+    def __init__(self, grid):
         super().__init__()
-        ## For visual
+        # For visual
         pygame.init()
-        self.GameScreen = pygame.display.set_mode((GridCols*blockwidth+200,GridRows*blockwidth+34))
+        self.GameScreen = pygame.display.set_mode((GridCols * block_width + 200, GridRows * block_width + 34))
         self.GridSurface = pygame.Surface(self.GameScreen.get_size())
         self.myfont = pygame.font.SysFont("monospace", 15)
         self.clock = pygame.time.Clock()
+        self.hide_unvisited = False
+        self.renderer = Renderer()
+        self.running = False
+        self.grid = grid
 
-    def execute(self):
-        self.handleInputs()
-        self.drawGrid()
-        self.update()
-        self.clock.tick(self.FRAME_RATE) # delay appropriate time frame
+    def run(self):
+        self.running = True
+        while self.running:
+            self.handleInputs()
+            self.update()
+            self.clock.tick(self.FRAME_RATE)  # delay appropriate time frame
 
-    def shutdown(self):
         pygame.quit()
-        os.kill(os.getpid(), signal.SIGINT)
+        quit()
+
+    def stop(self):
+        self.running = False
 
     def handleInputs(self):
         # Get Input
@@ -290,245 +552,151 @@ class PygameThread(LoopingThread):
             elif event.type == KEYDOWN:
                 if event.key == K_ESCAPE:
                     self.stop()
-                if event.key == K_m:
-                    self.drawMaze()
-                    self.update()
-                    self.FRAME_RATE = 0
+                elif event.key == K_s:
+                    self.hide_unvisited = not self.hide_unvisited
 
     def update(self):
         # render surface onto screen and update screen
-        if self.FRAME_RATE == 0:
-            return
-        self.GameScreen.blit(self.GridSurface, (0,0))
+        #self.GridSurface.fill((255, 255, 255))
+        #self.renderer.render(self.GridSurface)
+        self.drawMyMaze()
+        self.GameScreen.blit(self.GridSurface, (0, 0))
         pygame.display.update()
 
-    def drawGrid(self):
-        # draw grid on surface
-        self.GridSurface.fill((255,255,255))
-        for x in range(len(track_maze)):
-            for y in range(len(track_maze[x])):
-                if track_maze[x][y] == 0:
-                    pygame.draw.rect(self.GridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(self.GridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
-                elif track_maze[x][y] == 1:
-                    pygame.draw.rect(self.GridSurface, (255,255,255), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(self.GridSurface, (100,100,100), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
+    def drawMyMaze(self):
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # we should do something better for drawing. This is messy and ugly
+        self.GridSurface.fill((255, 255, 255))
+        for y in range(self.grid.rows):
+            for x in range(self.grid.cols):
+                node = self.grid.node(x, y)
+                color1 = (255, 255, 255)
+                color2 = (100, 100, 100)
 
-    def drawMaze(self):
-        """!!!!!! I have not fixed this method yet !!!!!!!"""
-        self.GridSurface.fill((255,255,255))
-        for x in range(len(maze)):
-            for y in range(len(maze[x])):
-                if maze[x][y] == 0:
-                    pygame.draw.rect(self.GridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(self.GridSurface, (40,40,40), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
-                elif maze[x][y] == 1:
-                    pygame.draw.rect(self.GridSurface, (255,255,255), (x*blockwidth+10,y*blockwidth+10,blockwidth,blockwidth), 0)
-                    pygame.draw.rect(self.GridSurface, (100,100,100), (x*blockwidth+10,y*blockwidth+10,blockwidth+1,blockwidth+1), 1)
-        #myGridSurface = myGridSurface.convert()
-        #return myGridSurface
+                if node.color():
+                    color1 = node.color()
+                if node.start():
+                    color1 = (0, 0, 255)
+                    color2 = (100, 100, 100)
+                elif node.end():
+                    color1 = (70, 255, 70)
+                    color2 = (100, 100, 100)
+                elif not node.walkable():
+                    color1 = (0, 0, 0)
+                    color2 = (0, 0, 0)
+                elif node.blocked() and not self.hide_unvisited:
+                    color1 = (0, 0, 0)
+                    color2 = (0, 0, 0)
+                elif not node.visited() and self.hide_unvisited:
+                    color1 = (40, 40, 40)
+                    color2 = (40, 40, 40)
+                # more color options go here
 
-class ProcessingThread(LoopingThread):
-    def execute(self):
-        makeGrid()
-        self.stop()
+                pygame.draw.rect(self.GridSurface, color1,
+                                 (node.x * block_width + 10, node.y * block_width + 10, block_width, block_width), 0)
+                pygame.draw.rect(self.GridSurface, color2, (
+                    node.x * block_width + 10, node.y * block_width + 10, block_width + 1, block_width + 1), 1)
 
-def main():
+
+class ProcessingThread(threading.Thread):
+    def __init__(self, builder, start, end, algorithm):
+        super().__init__()
+        self.builder = builder
+        self.start_node = start
+        self.end_node = end
+        self.algorithm = algorithm
+
+    def run(self):
+        print("Entering")
+        maze = self.builder.build2()
+
+        if self.start_node is None:
+            for y in range(maze.cols):
+                for x in range(maze.rows):
+                    if not maze.node(x, y).blocked() and random() < 0.1:
+                        self.start_node = maze.node(x, y)
+                    break
+                if self.start is not None:
+                    break
+
+        if self.end_node is None:
+            for y in reversed(range(maze.cols)):
+                for x in reversed(range(maze.rows)):
+                    if not maze.node(x, y).blocked() and random() < 0.1:
+                        self.end_node = maze.node(x, y)
+                    break
+                if self.end_node is not None:
+                    break
+
+        print(self.start_node, self.end_node)
+
+        self.algorithm.run(maze, self.start_node, self.end_node)
+
+
+"""
+For running the program:
+    Stick with Fast_Trajectory_Replanning.py -la -v 1 4 3 0 97 100
     
+    The -la tells the code to limit the speed of the algorithm. You can also use -lg to limit the speed of the
+    map generation. -v tells the code to visualize it with Pygame. The 1 is algorithm selection, 4 is the map number
+    (and for map number, I just multiply by 10 to get a seed) and the remaining are starting and ending coordinates. 
+"""
+def main():
     parser = argparse.ArgumentParser(description="CS440 Project 1 -- Fast_Trajectory_Replanning")
-    parser.add_argument("Algorithm", type= int,choices=[1,2,3], help= "1. A* forward, 2. A* backward, 3. Adaptive A*")
+    parser.add_argument("Algorithm", type=int, choices=[1, 2, 3], help="1. A* forward, 2. A* backward, 3. Adaptive A*")
     parser.add_argument("T", type=int, help="Tree number between 0-50")
-    parser.add_argument("s_x", type = int, help="Start x")
-    parser.add_argument("s_y", type = int, help="Start_y")
-    parser.add_argument("g_X", type = int, help="Goal_x")
-    parser.add_argument("g_y", type = int, help="Goal_y")
-    parser.add_argument("-R", help="Fully Random",action="store_true")
+    parser.add_argument("s_x", type=int, help="Start x")
+    parser.add_argument("s_y", type=int, help="Start_y")
+    parser.add_argument("g_x", type=int, help="Goal_x")
+    parser.add_argument("g_y", type=int, help="Goal_y")
+    parser.add_argument("-r", "--random", help="Fully Random", action='store_true')
+    parser.add_argument("-v", "--visual", help="Visualize", action='store_true')
+    parser.add_argument("-la", "--limit_algorithm", help="Whether or not to limit algorithm speed for visualization",
+                        action='store_true')
+    parser.add_argument("-lg", "--limit_generation", help="Whether or not to limit generation speed for visualization",
+                        action='store_true')
 
     args = vars(parser.parse_args())
-    
-    #if len(args) != 6:
-    #   parser.print_help()
-    #    sys.exit(1)
-    args=parser.parse_args()
-    #print(args)
-    #num_registers = args["k"]
-    ##algorithm = args["algorithm"]
-    #filename = args["file"]
-    # toggles whether or not screen gets drawn
-    visual = True
-    pyThread = DummyThread()
-    processing = ProcessingThread()
 
+    # variables to be set by arguments
+    visual = False
+    maze_builder = None
+    start = None
+    goal = None
+
+    visual = args['visual']
+    limit_a = args['limit_algorithm']
+    limit_g = args['limit_generation']
+
+    tr = tracker.SummaryTracker()
+
+    algorithms = [AStarAlgorithm(limit_a)]   # populate this array with algorithms corresponding to the argument options
+    algorithm = algorithms[args['Algorithm'] - 1]
+
+    if args['random']:
+        maze_builder = MazeBuilder(GridRows, GridCols, limit=limit_g)
+    else:
+        maze_builder = MazeBuilder(GridRows, GridCols, maze_seed=args["T"]*10, limit=limit_g)
+        start = maze_builder.grid.node(args['s_x'], args['s_y'])
+        goal = maze_builder.grid.node(args['g_x'], args['g_y'])
+        start.mark_start()
+        goal.mark_end()
+
+    # if we're visualizing, run the processing in another thread, and run the pygame handler here
     if visual:
-        # define signal handler so pygame can tell main thread to stop
-        def pygame_exit_signal_handler(signal, frame):
-            quit()
-        # set that signal handler to accept SIGUSR1
-        signal.signal(signal.SIGINT, pygame_exit_signal_handler)
+        processing_t = ProcessingThread(maze_builder, start, goal, algorithm)
+        processing_t.daemon = True    # set as daemon so it dies with the main thread
+        print(processing_t)
+        processing_t.start()
+        pygame_handler = PygameHandler(maze_builder.grid)
+        pygame_handler.run()
+    else:
+        # otherwise, we run the processing in the main thread
+        processing_t = ProcessingThread(maze_builder, start, goal, algorithm)
+        processing_t.run()
 
-        pyThread = PygameThread()
-
-    processing.start()
-    pyThread.run()
+    tr.print_diff()
 
 
 if __name__ == "__main__":
     main()
-"""
-start_x,start_y,goal_x,goal_y = generateStartFinish()
-final_path = []
-closed_list = []
-cell_costs = []
-priority_list = []
-heuristic_list = []
-path_cost = 0
-elapsed_time = 0
-drawmode = 0
-nodes_expanded = 0
-makeGrid(True)
-start_x,start_y,goal_x,goal_y = 0,0,0,0
-MySearch = AStarSearch() # Initialize Object
-
-while(running):
-	# Get Input
-	for event in pygame.event.get():
-		if event.type == pygame.QUIT:
-			running = False
-		elif event.type == pygame.KEYDOWN:
-			if event.key == pygame.K_ESCAPE:
-				running = False
-			elif event.key == pygame.K_g:
-				track_maze = [['1' for y in range(GridRows)] for x in range(GridCols)]
-				areacoordinates = makeGrid()
-				GridSurface = drawGrid(GridSurface)
-				start_x,start_y,goal_x,goal_y = generateStartFinish()
-				final_path = []
-				closed_list = []
-				priority_list = []
-				heuristic_list = []
-				cell_costs = []
-				path_cost = 0
-				elapsed_time = 0
-				nodes_expanded = 0
-				print("Generated new map")
-			elif event.key == pygame.K_e:
-				start_x,start_y,goal_x,goal_y = generateStartFinish()
-				final_path = []
-				closed_list = []
-				priority_list = []
-				heuristic_list = []
-				cell_costs = []
-				path_cost = 0
-				elapsed_time = 0
-				nodes_expanded = 0
-				print("Generated new start and finish points")
-			elif event.key == pygame.K_s:
-				# Save map: get filename
-				filename = raw_input("Save map to: ")
-				with open(os.path.join("./gen",filename),"w") as mapfile:
-					mapfile.write(str((start_x,start_y)))		# Write start
-					mapfile.write("\n")
-					mapfile.write(str((goal_x,goal_y)))			# Write goal
-					mapfile.write("\n")
-
-					for area in areacoordinates:				# Write hard to traverse area centers
-						mapfile.write(str((area[0],area[1])))
-						mapfile.write("\n")
-
-					for y in range(len(track_maze[x])):				# Write each cell
-						for x in range(len(track_maze)):
-							mapfile.write(str(track_maze[x][y]))
-						mapfile.write("\n")
-
-					mapfile.close()
-				print("Map saved!")
-			elif event.key == pygame.K_l:
-				# Load map: get filename
-				filename = raw_input("Load map from: ")
-				with open(os.path.join("./gen",filename),"r") as mapfile: #changed to allow using /maps folder
-					new_start = make_tuple(mapfile.readline())
-					start_x = new_start[0]
-					start_y = new_start[1]
-					new_goal = make_tuple(mapfile.readline())
-					goal_x = new_goal[0]
-					goal_y = new_goal[1]
-
-					areacoordinates = []
-
-					for i in range(8):
-						new_area = make_tuple(mapfile.readline())
-						areacoordinates.append((new_area[0],new_area[1]))
-
-					for y in range(len(track_maze[x])):				# Read each cell
-						for x in range(len(track_maze)):
-							track_maze[x][y] = mapfile.read(1)
-						mapfile.read(1)
-
-					mapfile.close()
-				final_path = []
-				closed_list = []
-				cell_costs = []
-				priority_list = []
-				heuristic_list = []
-				path_cost = 0
-				elapsed_time = 0
-				nodes_expanded = 0
-				GridSurface = drawGrid(GridSurface)
-				print("Map loaded!")
-			elif event.key == pygame.K_UP:
-				if cursor_y-1 >= 0:
-					cursor_y -= 1
-			elif event.key == pygame.K_LEFT:
-				if cursor_x-1 >= 0:
-					cursor_x -= 1
-			elif event.key == pygame.K_RIGHT:
-				if cursor_x+1 < GridCols:
-					cursor_x += 1
-			elif event.key == pygame.K_DOWN:
-				if cursor_y+1 < GridRows:
-					cursor_y += 1
-			elif event.key == pygame.K_v:
-				# draw closed list
-				if drawmode == 0:
-					drawmode = 1
-				else:
-					drawmode = 0
-			elif event.key == pygame.K_a:		# -------- A* Search --------
-				choice = -1
-				while int(choice) < 1 or int(choice) > 6:
-					choice = raw_input ("Enter (1) for Manhattan distance, (2) for Euclidean distance, (3) for Octile distance, (4) for Chebyshev distance, (5) for Straight-Diagonal Distance, or (6) Best/Minimum of all: ")
-				MySearch = AStarSearch()
-				start_time = time.time()
-				closed_list, cell_costs, final_path, path_cost, priority_list, heuristic_list = MySearch.Search(start_x, start_y, goal_x, goal_y,choice)
-				elapsed_time = time.time() - start_time
-				nodes_expanded = len(closed_list)
-			elif event.key == pygame.K_u:		# -------- Uniform Cost Search --------
-				MySearch = UniformCostSearch()
-				start_time = time.time()
-				closed_list, cell_costs, final_path, path_cost, priority_list, heuristic_list = MySearch.Search(start_x, start_y, goal_x, goal_y,1)
-				elapsed_time = time.time() - start_time
-				nodes_expanded = len(closed_list)
-			elif event.key == pygame.K_w:		# -------- Weighted A* Search --------
-				choice = -1 #heuristic choice
-				weight = 0 #weight of heuristic
-
-				while (int(choice) < 1 or int(choice) > 6):
-					choice = raw_input("Enter (1) for Manhattan distance, (2) for Euclidean Distance, (3) for Octile Distance, (4) for Chebyshev Distance, (5) for Straight-Diagonal Distance, or (6) Best/Minimum of all: ")
-				while float(weight) < 1:
-					weight = raw_input("Enter the selected weight for Weighted A* - must be >= 1: ")
-
-				MySearch = WeightedAStarSearch(weight)
-				start_time = time.time()
-				closed_list, cell_costs, final_path, path_cost, priority_list, heuristic_list = MySearch.Search(start_x, start_y, goal_x, goal_y, choice)
-				elapsed_time = time.time() - start_time
-
-				nodes_expanded = len(closed_list)
-			elif event.key == pygame.K_q:		# -------- Sequential A* Search --------
-				MySearch = AStarSearch()
-
-
-		#print(GridSurface,closed_list,final_path,path_cost,nodes_expanded,drawmode,elapsed_time,cell_costs, priority_list, heuristic_list)
-		drawScreen(GridSurface,closed_list,final_path,path_cost,nodes_expanded,drawmode,elapsed_time,cell_costs, priority_list, heuristic_list)
-
-pygame.quit()
-"""
