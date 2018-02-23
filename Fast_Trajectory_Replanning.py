@@ -48,9 +48,12 @@ def sift(ls, node):
     if has_right and ls[right] < ls[left]:
         min_index = right
 
-    if ls[min_index] < ls[node]:
-        ls[min_index], ls[node] = ls[node], ls[min_index]
-        node = min_index
+    try:
+        if ls[min_index] < ls[node]:
+            ls[min_index], ls[node] = ls[node], ls[min_index]
+            node = min_index
+    except:
+        print(len(ls), node, left, right, min_index, has_right)
 
     return node  # return where the original parent now resides
 
@@ -92,7 +95,7 @@ def heappop(ls):
 
 def heuristic(start, goal):
     # Manhattan distance
-    return abs(start.x - goal.x) + abs(start.y - goal.y)
+    return abs(goal.x - start.x) + abs(goal.y - start.y)
 
 
 @total_ordering
@@ -182,6 +185,8 @@ class Node:
 
     def __lt__(self, other):
         if isinstance(other, Node):
+            if self.f() == other.f():
+                return self.g() > other.g()
             return self.f() < other.f()
         raise ValueError("Object must be of type Node not '%s'" % str(type(other)))
 
@@ -315,7 +320,7 @@ class MazeBuilder:
             possible_bridge = list(filter(lambda x: x and not x.blocked(), extended_neighbors))
             # chance we create a bridge between two tunnels
             # this prevents there from being precisely 1 path between any two points
-            if len(possible_bridge) > 0 and random() < 0.15:
+            if len(possible_bridge) > 0 and random() < 0.3:
                 node = possible_bridge[0]
                 middle = self.grid.node(int((current.x + node.x) / 2), int((current.y + node.y) / 2))
                 middle.unblock()
@@ -342,16 +347,17 @@ class MazeBuilder:
 
 
 class AgentAlgorithm:
-    def __init__(self, limit):
+    def __init__(self, limit_m, limit_a):
         self.counter = 0
-        self.limit = limit
+        self.limit_a = limit_a
+        self.limit_m = limit_m
 
     def compute_path(self, grid, goal, open_list):
         raise NotImplemented()
 
     @staticmethod
     def cost(node, next_b):
-        if next_b.blocked():
+        if not next_b.walkable():
             return sys.maxsize
         else:
             return 1
@@ -380,7 +386,7 @@ class AgentAlgorithm:
                 return False
 
             for node in path:
-                if self.limit:
+                if self.limit_m:
                     clock.tick(60)
                 # for each node in the path
                 if node.walkable():
@@ -457,9 +463,13 @@ class AStarAlgorithm(AgentAlgorithm):
         while goal.g() > open_list[0].f():
             i += 1
             current = heappop(open_list)
-            print(current, current.g(), current.f())
-            current.color((100, 0, min(255, current.g())))
-            if self.limit:
+            # print(current, current.g(), current.f())
+            col = current.f()
+            r = ((col & 0x380) >> 7) * 30
+            g = ((col & 0x078) >> 3) * 17
+            b = ((col & 0x007) >> 0) * 30
+            current.color((r, g, b))
+            if self.limit_a:
                 sleep(0.005)
             for neighbor in grid.neighbors(current):
                 if neighbor.search() < self.counter:
@@ -476,7 +486,7 @@ class AStarAlgorithm(AgentAlgorithm):
                     neighbor.h(goal)
                     heappush(open_list, neighbor)
 
-        print("A* visited %d nodes" % i)
+        # print("A* visited %d nodes" % i)
 
         if len(open_list) == 0:
             return []
@@ -579,7 +589,7 @@ class PygameHandler:
                 node = self.grid.node(x, y)
 
                 if node:
-                    info = "X: %d Y: %d\nG: %d\nH: %d\nF: %d\n" % (node.x, node.y, node.g(), node.h(), node.f())
+                    info = "X: %d Y: %d\nG: %d\nH: %d\nF: %d\nUpdate Iteration: %d\n" % (node.x, node.y, node.g(), node.h(), node.f(), node.search())
                     info = info.split("\n")
                     self.info = [self.myfont.render(msg, True, (0, 0, 0)) for msg in info]
                 else:
@@ -593,7 +603,7 @@ class PygameHandler:
         if self.info:
             y_offset = 100
             for msg in self.info:
-                self.GridSurface.blit(msg, (850, y_offset))
+                self.GridSurface.blit(msg, (830, y_offset))
                 y_offset += 20
         self.GameScreen.blit(self.GridSurface, (0, 0))
         pygame.display.update()
@@ -642,16 +652,21 @@ class ProcessingThread(threading.Thread):
         self.algorithm = algorithm
 
     def run(self):
-        print("Entering")
+        if threading.current_thread().getName() != "__main__":
+            sleep(1)  # give time for pygame to initialize
+
+        print("Entering actual algorithm execution")
         maze = self.builder.build2()
 
         while self.start_node is None:
-            node = maze.node(randrange(0, maze.cols), randrange(0, maze.rows))
+            # pick a starting point in the leftmost quarter of the board
+            node = maze.node(randrange(0, int(maze.cols/4)), randrange(0, maze.rows))
             if not node.blocked():
                 self.start_node = node
 
         while self.end_node is None:
-            node = maze.node(randrange(0, maze.cols), randrange(0, maze.rows))
+            # pick an ending point in the rightmost quarter of the board
+            node = maze.node(randrange(int(3*maze.cols/4), maze.cols), randrange(0, maze.rows))
             if not node.blocked():
                 self.end_node = node
 
@@ -666,7 +681,8 @@ For running the program:
     Stick with Fast_Trajectory_Replanning.py -la -v 1 4 3 0 97 100
     
     The -la tells the code to limit the speed of the algorithm. You can also use -lg to limit the speed of the
-    map generation. -v tells the code to visualize it with Pygame. The 1 is algorithm selection, 4 is the map number
+    map generation or -lm to limit the speed of the agent actually following the path found by the algorithm.
+    -v tells the code to visualize it with Pygame. The 1 is algorithm selection, 4 is the map number
     (and for map number, I just multiply by 10 to get a seed) and the remaining are starting and ending coordinates. 
 """
 def main():
@@ -680,6 +696,8 @@ def main():
     parser.add_argument("-r", "--random", help="Fully Random", action='store_true')
     parser.add_argument("-v", "--visual", help="Visualize", action='store_true')
     parser.add_argument("-la", "--limit_algorithm", help="Whether or not to limit algorithm speed for visualization",
+                        action='store_true')
+    parser.add_argument("-lm", "--limit_movement", help="Whether or not to limit movement speed for visualization",
                         action='store_true')
     parser.add_argument("-lg", "--limit_generation", help="Whether or not to limit generation speed for visualization",
                         action='store_true')
@@ -695,14 +713,15 @@ def main():
     visual = args['visual']
     limit_a = args['limit_algorithm']
     limit_g = args['limit_generation']
+    limit_m = args['limit_movement']
 
     tr = tracker.SummaryTracker()
 
-    algorithms = [AStarAlgorithm(limit_a)]   # populate this array with algorithms corresponding to the argument options
+    algorithms = [AStarAlgorithm(limit_m, limit_a)]   # populate this array with algorithms corresponding to the argument options
     algorithm = algorithms[args['Algorithm'] - 1]
 
     if args['random']:
-        maze_builder = MazeBuilder(GridRows, GridCols, limit=limit_g)
+        maze_builder = MazeBuilder(GridRows, GridCols, limit=limit_g)  #maze_seed=1791, limit=limit_g)
     else:
         maze_builder = MazeBuilder(GridRows, GridCols, maze_seed=args["T"]*10, limit=limit_g)
         start = maze_builder.grid.node(args['s_x'], args['s_y'])
@@ -710,19 +729,22 @@ def main():
         start.mark_start()
         goal.mark_goal()
 
-    # if we're visualizing, run the processing in another thread, and run the pygame handler here
-    if visual:
-        processing_t = ProcessingThread(maze_builder, start, goal, algorithm)
-        processing_t.daemon = True    # set as daemon so it dies with the main thread
-        processing_t.start()
-        pygame_handler = PygameHandler(maze_builder.grid)
-        pygame_handler.run()
-    else:
-        # otherwise, we run the processing in the main thread
-        processing_t = ProcessingThread(maze_builder, start, goal, algorithm)
-        processing_t.run()
+    threading.current_thread().setName("__main__")
 
-    tr.print_diff()
+    try:
+        # if we're visualizing, run the processing in another thread, and run the pygame handler here
+        if visual:
+            processing_t = ProcessingThread(maze_builder, start, goal, algorithm)
+            processing_t.daemon = True    # set as daemon so it dies with the main thread
+            processing_t.start()
+            pygame_handler = PygameHandler(maze_builder.grid)
+            pygame_handler.run()
+        else:
+            # otherwise, we run the processing in the main thread
+            processing_t = ProcessingThread(maze_builder, start, goal, algorithm)
+            processing_t.run()
+    finally:
+        tr.print_diff()
 
 
 if __name__ == "__main__":
