@@ -28,8 +28,8 @@ from heapq import *
 # Initialize Variables
 
 blockwidth = 8  # Drawing dimensions of block
-GridCols = 101   # No of columns
-GridRows = 101   # No of rows
+GridCols = 101  # No of columns
+GridRows = 101  # No of rows
 
 
 def heuristic(start, goal):
@@ -107,7 +107,6 @@ class Node:
         return "Node<%d, %d>" % (self.x, self.y)
 
 
-
 class Grid:
     def __init__(self, rows, cols):
         self.rows = rows
@@ -149,7 +148,7 @@ class MazeBuilder:
         self.rows = rows
         self.cols = cols
         self.grid = Grid(rows, cols)
-        self.current = None
+        self.current = self.grid.node(0, 0)
         self.clock = pygame.time.Clock()
 
     def init_node(self, node):
@@ -232,6 +231,9 @@ class MazeBuilder:
                 # if we have no extended neighbors to move to, backtrack
                 self.current = backtrace.pop()
                 continue
+
+            print(self.current.x, self.current.y, len(backtrace))
+            input()
 
             node = extended_neighbors[randrange(0, len(extended_neighbors))]
             # we can move to this node
@@ -372,7 +374,7 @@ class AgentAlgorithm:
         raise NotImplemented()
 
     def cost(self, node, next):
-        if not next.walkable():
+        if next.blocked():
             return sys.maxsize
         else:
             return 1
@@ -382,6 +384,7 @@ class AgentAlgorithm:
         self.counter = 0
         clock = pygame.time.Clock()
 
+        self.agent.visit()
         for neighbor in self.grid.neighbors(self.agent):
             # visit all neighbors
             neighbor.visit()
@@ -393,6 +396,7 @@ class AgentAlgorithm:
             end.g(sys.maxsize)
             end.search(self.counter)
 
+            #path = self.compute_path2(self.grid, start, end, [start], self.counter)
             path = self.compute_path(start, end)
             # path should be a list of nodes leading from agent to goal
             if len(path) == 0:
@@ -413,6 +417,54 @@ class AgentAlgorithm:
             print("Got to the end in %d iterations" % self.counter)
         else:
             print("Did not make it")
+
+    def compute_path2(self, grid, start, goal, open_list, counter):
+        reached = False
+        current = open_list[0]
+        neighbors = grid.neighbors(current)
+
+        while goal.g() > current.f():
+            heappop(open_list)
+
+            if len(neighbors) == 0:
+                return []
+
+            for node in neighbors:
+                if node.search() < counter:
+                    node.search(counter)
+                    node.g(sys.maxsize)
+
+                if node.blocked():
+                    continue
+
+                if node.g() > current.g() + 1:
+                    node.g(start.g() + 1)
+                    node.parent = current
+                    if node == goal:
+                        goal = node
+                        heappush(open_list, node)
+                        reached = True
+                        break
+                    heappush(open_list, node)
+            if reached:
+                break
+
+            if len(open_list) != 0:
+                current = open_list[0]
+                neighbors = grid.neighbors(current)
+            else:
+                break
+
+        path = []
+        current = goal
+        # backtrack from goal to agent
+        while current != start:
+            path.append(current)
+            current = current.parent
+
+        path.reverse()
+        return path
+
 
 
 class RandomAlgorithm(AgentAlgorithm):
@@ -465,8 +517,8 @@ class DFSAlgorithm(AgentAlgorithm):
 
 class AStarAlgorithm(AgentAlgorithm):
 
-    def compute_path(self, start, goal):
-        open_list = [start]
+    def compute_path(self, st, goal):
+        open_list = [st]
         path = []
 
         while goal.g() > open_list[0].f():
@@ -490,7 +542,7 @@ class AStarAlgorithm(AgentAlgorithm):
         current = goal
         # backtrack from goal to agent
         while current != self.agent:
-            path.append(current.parent)
+            path.append(current)
             current = current.parent
 
         path.reverse()
@@ -502,9 +554,10 @@ class AStarAlgorithm(AgentAlgorithm):
 # feel free to try if it becomes inconvenient to you
 mazeBuilder = MazeBuilder(GridRows, GridCols, maze_seed=40)
 algorithm = AStarAlgorithm(mazeBuilder.grid)
+#start = mazeBuilder.grid.node(3, 1)
+#end = mazeBuilder.grid.node(70, 70)
 start = mazeBuilder.grid.node(3, 0)
 end = mazeBuilder.grid.node(97, 100)
-
 
 class ProcessingThread(LoopingThread):
     def execute(self):
@@ -521,7 +574,7 @@ class ProcessingThread(LoopingThread):
 def main():
 
     parser = argparse.ArgumentParser(description="CS440 Project 1 -- Fast_Trajectory_Replanning")
-    parser.add_argument("Algorithm", type= int,choices=[1,2,3], help= "1. A* forward, 2. A* backward, 3. Adaptive A*")
+    parser.add_argument("Algorithm", type=int, choices=[1,2,3], help="1. A* forward, 2. A* backward, 3. Adaptive A*")
     parser.add_argument("T", type=int, help="Tree number between 0-50")
     parser.add_argument("s_x", type = int, help="Start x")
     parser.add_argument("s_y", type = int, help="Start_y")
