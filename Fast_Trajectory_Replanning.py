@@ -777,18 +777,17 @@ def main():
         goal = None
 
     try:
-        for i in range(num_runs):
-            # if we're visualizing, run the processing in another thread, and run the pygame handler here
-            if visual:
-                pygame_handler = PygameHandler()
-                processing_t = ProcessingThread(start, goal, algorithm, map_number, full_sim, pygame_handler, limit_g)
-                processing_t.daemon = True    # set as daemon so it dies with the main thread
-                processing_t.start()
-                pygame_handler.run()
-            else:
-                # otherwise, we run the processing in the main thread
-                processing_t = ProcessingThread(start, goal, algorithm, map_number, full_sim, limit_g=limit_g)
-                processing_t.run()
+        # if we're visualizing, run the processing in another thread, and run the pygame handler here
+        if visual:
+            pygame_handler = PygameHandler()
+            processing_t = ProcessingThread(start, goal, algorithm, map_number, full_sim, pygame_handler, limit_g)
+            processing_t.daemon = True    # set as daemon so it dies with the main thread
+            processing_t.start()
+            pygame_handler.run()
+        else:
+            # otherwise, we run the processing in the main thread
+            processing_t = ProcessingThread(start, goal, algorithm, map_number, full_sim, limit_g=limit_g)
+            processing_t.run()
     finally:
         tr.print_diff()
 
