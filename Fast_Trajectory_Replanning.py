@@ -48,17 +48,17 @@ def sift(ls, node):
     if has_right and ls[right] < ls[left]:
         min_index = right
 
-    try:
-        if ls[min_index] < ls[node]:
-            ls[min_index], ls[node] = ls[node], ls[min_index]
-            node = min_index
-    except:
-        print(len(ls), node, left, right, min_index, has_right)
+    if ls[min_index] < ls[node]:
+        ls[min_index], ls[node] = ls[node], ls[min_index]
+        node = min_index
 
     return node  # return where the original parent now resides
 
 
 def heapify(ls):
+    if len(ls) < 2:
+        return
+
     current = int((len(ls) - 2) / 2)
 
     while current >= 0:
@@ -93,6 +93,11 @@ def heappop(ls):
     return item
 
 
+def heuristic2(start, goal):
+    # Euclidean distance
+    return (abs(goal.x - start.x)**2 + abs(goal.y - start.y)**2)**0.5
+
+
 def heuristic(start, goal):
     # Manhattan distance
     return abs(goal.x - start.x) + abs(goal.y - start.y)
@@ -112,6 +117,13 @@ class Node:
         self._start = False
         self._goal = False
         self._color = None
+        self._closed = False
+
+    def closed(self):
+        return self._closed
+
+    def close(self):
+        self._closed = True
 
     def start(self):
         return self._start
@@ -143,9 +155,9 @@ class Node:
         else:
             return self._g
 
-    def h(self, goal=None):
-        if goal is not None:
-            self._h = heuristic(self, goal)
+    def h(self, newh=None):
+        if newh is not None:
+            self._h = newh
         else:
             return self._h
 
@@ -155,6 +167,9 @@ class Node:
     def reset(self):
         self._visited = False
         self._g = sys.maxsize
+        self._h = sys.maxsize
+        self._search = 0
+        self.parent = None
 
     def visit(self):
         self._visited = True
@@ -193,6 +208,9 @@ class Node:
     def __repr__(self):
         return "Node<%d, %d>" % (self.x, self.y)
 
+    def __hash__(self):
+        return hash(str(self))
+
 
 class Grid:
     def __init__(self, rows, cols):
@@ -230,9 +248,9 @@ class Grid:
 
 class MazeBuilder:
     def __init__(self, rows, cols, maze_seed=None, limit=False):
-        if not maze_seed:
+        if maze_seed is None:
             maze_seed = randrange(0, 10000)
-            print("Using maze seed: %d" % maze_seed)
+        print("Using maze seed:   %d" % maze_seed)
         seed(maze_seed)
         self.rows = rows
         self.cols = cols
@@ -351,6 +369,7 @@ class AgentAlgorithm:
         self.counter = 0
         self.limit_a = limit_a
         self.limit_m = limit_m
+        self.total = 0
 
     def compute_path(self, grid, goal, open_list):
         raise NotImplemented()
@@ -363,11 +382,12 @@ class AgentAlgorithm:
             return 1
 
     def run(self, grid, start, end):
+        self.total = 0
         self.counter = 0
         clock = pygame.time.Clock()
         agent = start
         agent.visit()
-        final_path = []
+        final_path = set()
 
         for neighbor in grid.neighbors(agent):
             # visit all neighbors
@@ -390,92 +410,56 @@ class AgentAlgorithm:
                 return False
 
             for node in path:
-                if self.limit_m:
-                    clock.tick(60)
-                # for each node in the path
-                if node.walkable():
-                    final_path.append(node)
-                    agent = node
-                    agent.color((150, 0, 0))
-                    # if we can move to it, move to it and visit neighbors
-                    for neighbor in grid.neighbors(agent):
-                        neighbor.visit()
-                else:
+                node.color((80, 80, 120))
+
+            for node in path:
+                if not node.walkable():
                     break
+                final_path.add(node)
+                agent = node
+                agent.color((150, 0, 0))
+                # if we can move to it, move to it and visit neighbors
+                for neighbor in grid.neighbors(agent):
+                    neighbor.visit()
 
-        if agent == end:
-            print("Got to the goal in %d iteration%s" % (self.counter, 's' if self.counter > 1 else ''))
-        else:
-            print("Did not make it")
+                if self.limit_m:
+                    clock.tick(30)
 
+            for node in path:
+                node.color(h_to_color(node.h()))
 
-class RandomAlgorithm(AgentAlgorithm):
-    def compute_path(self, grid, start, goal):
-        neighbors = start.neighbors(start)
-        return [neighbors[randrange(0, len(neighbors))]]
-
-
-class DFSAlgorithm(AgentAlgorithm):
-
-    def compute_path(self, grid, start, goal):
+        # reset for optimal path finding
         for row in grid.maze:
             for node in row:
-                node.g(sys.maxsize)
+                node.reset()
 
-        current = start
-        current.g(0)
-        options = []
-        path = []
-
-        while current != goal:
-            for neighbor in grid.neighbors(current):
-                if neighbor.g() > current.g() + 1 and neighbor.walkable():
-                    options.append(neighbor)
-                    neighbor.g(current.g() + 1)
-
-            current = min(options, key=lambda x: x.g())
-            options.remove(current)
-
-        path.append(current)
-
-        current = goal
-        # backtrack from goal to agent
-        while current != start:
-            neighbors = grid.neighbors(current)
-            options = sorted(neighbors, key=lambda x: x.g())
-            if len(options) == 0:
-                # no path can be found
-                return []
-            if options[0].g() == sys.maxsize:
-                # no path was traced all the way to here
-                return []
-
-            path.append(options[0])
-            current = options[0]
-
-        path.reverse()
-        return path
+        optimal_alg = Optimal(False, False)
+        optimal = optimal_alg.compute_path(grid, start, end)
+        print("Algorithm visited: %d nodes" % self.total)
+        print("Iterations:        %d" % self.counter)
+        print("Agent visited:     %d nodes" % len(final_path))
+        print("Visits/iteration:  %d nodes" % (self.total / self.counter))
+        print("Optimal route:     %d nodes" % len(optimal))
+        print("Optimal visits:    %d nodes" % optimal_alg.total)
 
 
-class AStarAlgorithm(AgentAlgorithm):
+class Optimal(AgentAlgorithm):
+    @staticmethod
+    def cost(node, next_b):
+        if next_b.blocked():
+            return sys.maxsize
+        else:
+            return 1
 
     def compute_path(self, grid, start, goal):
-        start.h(goal)
+        start.g(0)
+        start.search(self.counter)
+        start.h(heuristic2(start, goal))
         open_list = [start]
         path = []
 
-        i = 0
         while goal.g() > open_list[0].f():
-            i += 1
             current = heappop(open_list)
-            # print(current, current.g(), current.f())
-            col = current.f()
-            r = ((col & 0x380) >> 7) * 30
-            g = ((col & 0x078) >> 3) * 17
-            b = ((col & 0x007) >> 0) * 30
-            current.color((r, g, b))
-            if self.limit_a:
-                sleep(0.005)
             for neighbor in grid.neighbors(current):
                 if neighbor.search() < self.counter:
                     neighbor.g(sys.maxsize)
@@ -483,15 +467,14 @@ class AStarAlgorithm(AgentAlgorithm):
                 if current.g() + self.cost(current, neighbor) < neighbor.g():
                     neighbor.g(current.g() + self.cost(current, neighbor))
                     neighbor.parent = current
+                    self.total += 1
 
                     if neighbor in open_list:
                         open_list.remove(neighbor)
                         heapify(open_list)
 
-                    neighbor.h(goal)
+                    neighbor.h(heuristic2(neighbor, goal))
                     heappush(open_list, neighbor)
-
-        # print("A* visited %d nodes" % i)
 
         if len(open_list) == 0:
             return []
@@ -505,38 +488,67 @@ class AStarAlgorithm(AgentAlgorithm):
         path.reverse()
         return path
 
-# This code is currently unused -- probably won't use it.
-class Renderable:
-    def __init__(self):
-        self._alive = True
-
-    def is_alive(self):
-        return self._alive
-
-    def kill(self):
-        self._alive = False
-
-    def render(self, screen):
-        raise NotImplemented()
 
 
-class Renderer:
-    def __init__(self):
-        self._objs = set()
+class RandomAlgorithm(AgentAlgorithm):
+    def compute_path(self, grid, start, goal):
+        neighbors = grid.neighbors(start)
+        self.total += 1
+        return [neighbors[randrange(0, len(neighbors))]]
 
-    def add(self, obj):
-        if not isinstance(obj, Renderable):
-            raise ValueError()
 
-        self._objs.add(obj)
+class AStarAlgorithm(AgentAlgorithm):
 
-    def render(self, screen):
-        dead = set()
-        for obj in self._objs:
-            if not obj.is_alive():
-                dead.add(obj)
+    def compute_path(self, grid, start, goal):
+        start.h(heuristic(start, goal))
+        open_list = [start]
+        path = []
 
-        self._objs = self._objs.difference(dead)
+        i = 0
+        while goal.g() > open_list[0].f():
+            i += 1
+            current = heappop(open_list)
+            # print(current, current.g(), current.f())
+
+            current.color(h_to_color(current.h(), roof=GridCols+GridRows))
+            if self.limit_a:
+                sleep(0.005)
+
+            for neighbor in grid.neighbors(current):
+                if neighbor.search() < self.counter:
+                    neighbor.g(sys.maxsize)
+                    neighbor.search(self.counter)
+                if current.g() + self.cost(current, neighbor) < neighbor.g():
+                    neighbor.g(current.g() + self.cost(current, neighbor))
+                    neighbor.parent = current
+                    self.total += 1
+
+                    if neighbor in open_list:
+                        open_list.remove(neighbor)
+                        heapify(open_list)
+
+                    neighbor.h(heuristic(neighbor, goal))
+                    heappush(open_list, neighbor)
+
+        #print("A* visited %d nodes" % i)
+
+        if len(open_list) == 0:
+            return []
+
+        current = goal
+        # backtrack from goal to agent
+        while current != start:
+            path.append(current)
+            current = current.parent
+
+        path.reverse()
+        return path
+
+
+def h_to_color(value, roof=200):
+    alpha = min(value, roof) / roof
+    inv = 1 - alpha
+    return [int(255*alpha), int(255*inv), 0]
 
 
 class PygameHandler:
@@ -550,7 +562,7 @@ class PygameHandler:
 
     FRAME_RATE = 30  # in frames per second
 
-    def __init__(self, grid):
+    def __init__(self):
         super().__init__()
         # For visual
         pygame.init()
@@ -559,9 +571,8 @@ class PygameHandler:
         self.myfont = pygame.font.Font("roboto.ttf", 14)
         self.clock = pygame.time.Clock()
         self.hide_unvisited = False
-        self.renderer = Renderer()
         self.running = False
-        self.grid = grid
+        self.grid = None
         self.info = None
 
     def run(self):
@@ -589,6 +600,8 @@ class PygameHandler:
                 elif event.key == K_s:
                     self.hide_unvisited = not self.hide_unvisited
             elif event.type == MOUSEMOTION:
+                if not self.grid:
+                    continue
                 mouse_pos = pygame.mouse.get_pos()
                 x, y = int((mouse_pos[0] - 10) / block_width), int((mouse_pos[1] - 10) / block_width)
                 node = self.grid.node(x, y)
@@ -614,8 +627,9 @@ class PygameHandler:
         pygame.display.update()
 
     def drawMyMaze(self):
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # we should do something better for drawing. This is messy and ugly
+        if not self.grid:
+            return
+
         self.GridSurface.fill((255, 255, 255))
         for y in range(self.grid.rows):
             for x in range(self.grid.cols):
@@ -623,20 +637,20 @@ class PygameHandler:
                 color1 = (255, 255, 255)
                 color2 = (100, 100, 100)
 
-                if node.color():
-                    color1 = node.color()
-                if node.start():
-                    color1 = (0, 0, 255)
-                    color2 = (100, 100, 100)
-                elif node.goal():
-                    color1 = (70, 255, 70)
-                    color2 = (100, 100, 100)
+                if node.blocked() and not self.hide_unvisited:
+                    color1 = (0, 0, 0)
+                    color2 = (0, 0, 0)
                 elif not node.walkable():
                     color1 = (0, 0, 0)
                     color2 = (0, 0, 0)
-                elif node.blocked() and not self.hide_unvisited:
-                    color1 = (0, 0, 0)
-                    color2 = (0, 0, 0)
+                elif node.start():
+                    color1 = (0, 0, 255)
+                    color2 = (100, 100, 100)
+                elif node.goal():
+                    color1 = (255, 0, 0)
+                    color2 = (100, 100, 100)
+                elif node.color():
+                    color1 = node.color()
                 elif not node.visited() and self.hide_unvisited:
                     color1 = (40, 40, 40)
                     color2 = (40, 40, 40)
@@ -649,59 +663,64 @@ class PygameHandler:
 
 
 class ProcessingThread(threading.Thread):
-    def __init__(self, builder, start, end, algorithm):
+    def __init__(self, start, end, algorithm, seed_=None, full_sim=False, pyhandler=None, limit_g=False):
         super().__init__()
-        self.builder = builder
         self.start_node = start
         self.end_node = end
         self.algorithm = algorithm
+        self.seed = seed_
+        self.full_sim = full_sim
+        self.pyhandler = pyhandler
+        self.limit_g = limit_g
 
     def run(self):
         if threading.current_thread().getName() != "__main__":
             sleep(1)  # give time for pygame to initialize
 
-        print("Entering actual algorithm execution")
-        maze = self.builder.build2()
+        runs = 50 if self.full_sim else 1
+        print("Entering execution portion")
 
-        half_h = int(maze.rows / 2)
-        start_half = randrange(0, 2)  # randomly pick either top half or bottom half
-        end_half = 1 - start_half
+        for i in range(runs):
+            seed_ = i if self.full_sim else self.seed
+            seed_ = int((2**seed_)) if seed_ is not None else seed_
+            builder = MazeBuilder(GridRows, GridCols, seed_, self.limit_g)
+            if self.pyhandler:
+                self.pyhandler.grid = builder.grid
 
-        while self.start_node is None:
-            # pick a starting point in the leftmost quarter of the board
-            node = maze.node(randrange(0, int(maze.cols/4)), randrange(start_half*half_h, (start_half+1)*half_h))
-            if not node.blocked():
-                self.start_node = node
+            maze = builder.build2()
+            half_h = int(maze.rows / 2)
+            start_half = randrange(0, 2)  # randomly pick either top half or bottom half
+            end_half = 1 - start_half
 
-        while self.end_node is None:
-            # pick an ending point in the rightmost quarter of the board
-            node = maze.node(randrange(int(3*maze.cols/4), maze.cols), randrange(end_half*half_h, (end_half+1)*half_h))
-            if not node.blocked():
-                self.end_node = node
+            while self.start_node is None:
+                # pick a starting point in the leftmost quarter of the board
+                node = maze.node(randrange(0, int(maze.cols/4)), randrange(start_half*half_h, (start_half+1)*half_h))
+                if not node.blocked():
+                    self.start_node = node
 
-        print(self.start_node, self.end_node)
-        self.start_node.mark_start()
-        self.end_node.mark_goal()
-        self.algorithm.run(maze, self.start_node, self.end_node)
+            while self.end_node is None:
+                # pick an ending point in the rightmost quarter of the board
+                node = maze.node(randrange(int(3*maze.cols/4), maze.cols), randrange(end_half*half_h, (end_half+1)*half_h))
+                if not node.blocked():
+                    self.end_node = node
+
+            print(self.start_node, self.end_node)
+            self.start_node.mark_start()
+            self.end_node.mark_goal()
+            self.algorithm.run(maze, self.start_node, self.end_node)
+            seed_ = i
+            self.start_node = None
+            self.end_node = None
 
 
-"""
-For running the program:
-    Stick with Fast_Trajectory_Replanning.py -la -v 1 4 3 0 97 100
-    
-    The -la tells the code to limit the speed of the algorithm. You can also use -lg to limit the speed of the
-    map generation or -lm to limit the speed of the agent actually following the path found by the algorithm.
-    -v tells the code to visualize it with Pygame. The 1 is algorithm selection, 4 is the map number
-    (and for map number, I just multiply by 10 to get a seed) and the remaining are starting and ending coordinates. 
-"""
 def main():
     parser = argparse.ArgumentParser(description="CS440 Project 1 -- Fast_Trajectory_Replanning")
-    parser.add_argument("Algorithm", type=int, choices=[1, 2, 3], help="1. A* forward, 2. A* backward, 3. Adaptive A*")
-    parser.add_argument("T", type=int, help="Tree number between 0-50")
-    parser.add_argument("s_x", type=int, help="Start x")
-    parser.add_argument("s_y", type=int, help="Start_y")
-    parser.add_argument("g_x", type=int, help="Goal_x")
-    parser.add_argument("g_y", type=int, help="Goal_y")
+    parser.add_argument("algorithm", type=int, choices=[1, 2, 3], help="1. A* forward, 2. A* backward, 3. Adaptive A*")
+    parser.add_argument("m", type=int, help="map number between 1-50", nargs='?', default=None)
+    parser.add_argument("s_x", type=int, help="Start x", nargs='?', default=None)
+    parser.add_argument("s_y", type=int, help="Start y", nargs='?', default=None)
+    parser.add_argument("g_x", type=int, help="Goal x", nargs='?', default=None)
+    parser.add_argument("g_y", type=int, help="Goal y", nargs='?', default=None)
     parser.add_argument("-r", "--random", help="Fully Random", action='store_true')
     parser.add_argument("-v", "--visual", help="Visualize", action='store_true')
     parser.add_argument("-la", "--limit_algorithm", help="Whether or not to limit algorithm speed for visualization",
@@ -710,48 +729,66 @@ def main():
                         action='store_true')
     parser.add_argument("-lg", "--limit_generation", help="Whether or not to limit generation speed for visualization",
                         action='store_true')
+    parser.add_argument("-f", "--full_sim", help="Run the set of 50 simulations", action='store_true')
 
     args = vars(parser.parse_args())
 
     # variables to be set by arguments
-    visual = False
-    maze_builder = None
-    start = None
-    goal = None
-
     visual = args['visual']
     limit_a = args['limit_algorithm']
     limit_g = args['limit_generation']
     limit_m = args['limit_movement']
+    full_sim = args['full_sim']
+    algorithm = args['algorithm']
+    start_coords = args['s_x'], args['s_y']
+    goal_coords = args['g_x'], args['g_y']
+    run_random = args['random']
+    map_number = args['m']
 
+    # ensure a valid set of arguments was passed
+    if full_sim and run_random:
+        print(parser.format_help())
+        print("Only one of -f and -r can be specified at once.")
+        quit()
+    elif not (full_sim or run_random) and goal_coords[1] is None:
+        print(parser.format_help())
+        print("Starting and ending coordinates must be fully specified when not running full sim or randomly.")
+        quit()
+
+    # populate this array with algorithms corresponding to the argument options
+    algorithms = [AStarAlgorithm(limit_m, limit_a)]
+    algorithm = algorithms[algorithm - 1]
+
+    maze_builder = None
+    start = None
+    goal = None
+    num_runs = 50 if full_sim else 1
+    map_number = 0 if full_sim else map_number
+
+    # set thread name so that processing thread and identify whether or not it is the main thread
+    # if it is not the main thread, is sleeps to allow pygame to initialize
+    threading.current_thread().setName("__main__")
+    # tracker for memory usage
     tr = tracker.SummaryTracker()
 
-    algorithms = [AStarAlgorithm(limit_m, limit_a)]   # populate this array with algorithms corresponding to the argument options
-    algorithm = algorithms[args['Algorithm'] - 1]
-
-    if args['random']:
-        maze_builder = MazeBuilder(GridRows, GridCols, limit=limit_g)  #maze_seed=1791, limit=limit_g)
-    else:
-        maze_builder = MazeBuilder(GridRows, GridCols, maze_seed=args["T"]*10, limit=limit_g)
-        start = maze_builder.grid.node(args['s_x'], args['s_y'])
-        goal = maze_builder.grid.node(args['g_x'], args['g_y'])
-        start.mark_start()
-        goal.mark_goal()
-
-    threading.current_thread().setName("__main__")
+    if run_random:
+        map_number = None
+        start = None
+        goal = None
 
     try:
-        # if we're visualizing, run the processing in another thread, and run the pygame handler here
-        if visual:
-            processing_t = ProcessingThread(maze_builder, start, goal, algorithm)
-            processing_t.daemon = True    # set as daemon so it dies with the main thread
-            processing_t.start()
-            pygame_handler = PygameHandler(maze_builder.grid)
-            pygame_handler.run()
-        else:
-            # otherwise, we run the processing in the main thread
-            processing_t = ProcessingThread(maze_builder, start, goal, algorithm)
-            processing_t.run()
+        for i in range(num_runs):
+            # if we're visualizing, run the processing in another thread, and run the pygame handler here
+            if visual:
+                pygame_handler = PygameHandler()
+                processing_t = ProcessingThread(start, goal, algorithm, map_number, full_sim, pygame_handler, limit_g)
+                processing_t.daemon = True    # set as daemon so it dies with the main thread
+                processing_t.start()
+                pygame_handler.run()
+            else:
+                # otherwise, we run the processing in the main thread
+                processing_t = ProcessingThread(start, goal, algorithm, map_number, full_sim, limit_g=limit_g)
+                processing_t.run()
     finally:
         tr.print_diff()
 
