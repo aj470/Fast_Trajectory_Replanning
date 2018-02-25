@@ -4,6 +4,7 @@
 # CS 440: Intro to Artificial Intelligence
 # Due date: 26th February 2018
 # authors: Ayush Joshi, Nikhil Mathur, and Dan Snyder
+import inspect
 
 import pygame
 from pygame.locals import *
@@ -11,7 +12,6 @@ import threading
 from random import *
 import sys
 import argparse
-from pympler import tracker
 from time import sleep, monotonic
 
 # Convention for the Environment
@@ -109,43 +109,51 @@ def heuristic_adaptive(start, goal):
 
 
 class Node:
+    VISITED = 0b00000001
+    BLOCKED = 0b00000010
+    START   = 0b00000100
+    GOAL    = 0b00001000
+    CLOSED  = 0b00010000
+    COLOR   = 0b11100000
+
+    colors = (None, (150, 0, 0), (80, 80, 120))
+
     def __init__(self, x, y):
         self.x = x
         self.y = y
         self.parent = None
         self._search = 0
-        self._visited = False
-        self._blocked = False
         self._g = sys.maxsize
         self._h = sys.maxsize
-        self._start = False
-        self._goal = False
-        self._color = None
-        self._closed = False
+        self.flags = 0
 
     def closed(self):
-        return self._closed
+        return bool(self.flags & Node.CLOSED)
 
     def close(self):
-        self._closed = True
+        self.flags |= Node.CLOSED
 
     def start(self):
-        return self._start
+        return bool(self.flags & Node.START)
 
     def goal(self):
-        return self._goal
+        return bool(self.flags & Node.GOAL)
 
     def mark_start(self):
-        self._start = True
+        self.flags |= Node.START
 
     def mark_goal(self):
-        self._goal = True
+        self.flags |= Node.GOAL
 
     def color(self, newc=None):
         if newc is not None:
-            self._color = newc
+            self.flags &= ~Node.COLOR
+            self.flags |= newc << 5
         else:
-            return self._color
+            col = (self.flags & Node.COLOR) >> 5
+            if col == 7:
+                return h_to_color(self.h(), roof=GridCols + GridRows)
+            return Node.colors[col]
 
     def search(self, news=None):
         if news is not None:
@@ -169,26 +177,26 @@ class Node:
         return self.g() + self.h()
 
     def reset(self):
-        self._visited = False
+        self.flags &= ~Node.VISITED
         self._g = sys.maxsize
         self._h = sys.maxsize
         self._search = 0
         self.parent = None
 
     def visit(self):
-        self._visited = True
+        self.flags |= Node.VISITED
 
     def block(self):
-        self._blocked = True
+        self.flags |= Node.BLOCKED
 
     def unblock(self):
-        self._blocked = False
+        self.flags &= ~Node.BLOCKED
 
     def visited(self):
-        return self._visited
+        return bool(self.flags & Node.VISITED)
 
     def blocked(self):
-        return self._blocked
+        return bool(self.flags & Node.BLOCKED)
 
     def walkable(self):
         # this is to be used for the path finding algorithm to account for fog of war
@@ -220,7 +228,7 @@ class Grid:
     def __init__(self, rows, cols):
         self.rows = rows
         self.cols = cols
-        self.maze = [[Node(x, y) for x in range(cols)] for y in range(rows)]
+        self.maze = tuple(tuple((Node(x, y) for x in range(cols))) for y in range(rows))
 
     def node(self, x, y):
         if x < 0 or x >= self.rows:
@@ -230,11 +238,11 @@ class Grid:
         return self.maze[y][x]
 
     def neighbors(self, node):
-        neighbors = [
+        neighbors = (
                 self.node(node.x, node.y-1),
                 self.node(node.x, node.y+1),
                 self.node(node.x-1, node.y),
-                self.node(node.x+1, node.y)]
+                self.node(node.x+1, node.y))
         return tuple(filter(lambda n: n, neighbors))
 
     def down(self, node):
@@ -332,14 +340,14 @@ class MazeBuilder:
         while not finished:
             if self.limit:
                 clock.tick(100)
-            extended_neighbors = [
+            extended_neighbors = (
                 self.grid.node(current.x, current.y - 2),
                 self.grid.node(current.x, current.y + 2),
                 self.grid.node(current.x - 2, current.y),
                 self.grid.node(current.x + 2, current.y)
-            ]
+        )
 
-            possible_bridge = list(filter(lambda x: x and not x.blocked(), extended_neighbors))
+            possible_bridge = tuple(filter(lambda x: x and not x.blocked(), extended_neighbors))
             # chance we create a bridge between two tunnels
             # this prevents there from being precisely 1 path between any two points
             if len(possible_bridge) > 0 and random() < 0.3:
@@ -348,7 +356,7 @@ class MazeBuilder:
                 middle.unblock()
 
             # get only extended neighbors that exist and are blocked (meaning we can unblock them)
-            extended_neighbors = list(filter(lambda x: x and x.blocked(), extended_neighbors))
+            extended_neighbors = tuple(filter(lambda x: x and x.blocked(), extended_neighbors))
 
             if len(extended_neighbors) == 0 and len(backtrace) == 0:
                 finished = True
@@ -392,6 +400,7 @@ class AgentAlgorithm:
         agent = start
         agent.visit()
         final_path = set()
+        start_time = monotonic()
 
         for neighbor in grid.neighbors(agent):
             # visit all neighbors
@@ -408,20 +417,20 @@ class AgentAlgorithm:
             path = self.compute_path(grid, agent, end)
 
             for node in final_path:
-                node.color((150, 0, 0))
+                node.color(1)
             # path should be a list of nodes leading from agent to goal
             if len(path) == 0:
                 return False
 
             for node in path:
-                node.color((80, 80, 120))
+                node.color(2)
 
             for node in path:
                 if not node.walkable():
                     break
                 final_path.add(node)
                 agent = node
-                agent.color((150, 0, 0))
+                agent.color(1)
                 # if we can move to it, move to it and visit neighbors
                 for neighbor in grid.neighbors(agent):
                     neighbor.visit()
@@ -430,23 +439,18 @@ class AgentAlgorithm:
                     clock.tick(30)
 
             for node in path:
-                node.color(h_to_color(node.h(), roof=GridCols+GridRows))
+                node.color(7)
+
+        end_time = monotonic()
 
         for node in final_path:
-            node.color((150, 0, 0))
-        # reset for optimal path finding
-        for row in grid.maze:
-            for node in row:
-                node.reset()
+            node.color(1)
 
-        optimal_alg = Optimal(False, False)
-        optimal = optimal_alg.compute_path(grid, start, end)
         print("Algorithm expanded: %d nodes" % self.total)
         print("Iterations:         %d" % self.counter)
         print("Agent visited:      %d nodes" % len(final_path))
         print("Visits/iteration:   %d nodes" % (self.total / self.counter))
-        print("Optimal route:      %d nodes" % len(optimal))
-        print("Optimal expanded:   %d nodes" % optimal_alg.total)
+        print("Time in seconds:    %0.6f seconds" % (end_time - start_time))
 
 
 class Optimal(AgentAlgorithm):
@@ -483,7 +487,7 @@ class Optimal(AgentAlgorithm):
                     heappush(open_list, neighbor)
 
         if len(open_list) == 0:
-            return []
+            return ()
 
         current = goal
         # backtrack from goal to agent
@@ -492,7 +496,7 @@ class Optimal(AgentAlgorithm):
             current = current.parent
 
         path.reverse()
-        return path
+        return tuple(path)
 
 
 class RandomAlgorithm(AgentAlgorithm):
@@ -514,7 +518,7 @@ class AStarAlgorithm(AgentAlgorithm):
             current = heappop(open_list)
             # print(current, current.g(), current.f())
 
-            current.color(h_to_color(current.h(), roof=GridCols+GridRows))
+            current.color(7)
             if self.limit_a:
                 sleep(0.005)
 
@@ -536,7 +540,7 @@ class AStarAlgorithm(AgentAlgorithm):
         #print("A* visited %d nodes" % i)
 
         if len(open_list) == 0:
-            return []
+            return ()
 
         current = goal
         # backtrack from goal to agent
@@ -545,7 +549,7 @@ class AStarAlgorithm(AgentAlgorithm):
             current = current.parent
 
         path.reverse()
-        return path
+        return tuple(path)
 
 
 class AdaptiveAStarAlgorithm(AgentAlgorithm):
@@ -563,7 +567,7 @@ class AdaptiveAStarAlgorithm(AgentAlgorithm):
             closed.add(current)
             # print(current, current.g(), current.f())
 
-            current.color(h_to_color(current.h(), roof=GridCols+GridRows))
+            current.color(7)
             if self.limit_a:
                 sleep(0.005)
 
@@ -588,7 +592,7 @@ class AdaptiveAStarAlgorithm(AgentAlgorithm):
             node.h(goal.g() - node.g())
 
         if len(open_list) == 0:
-            return []
+            return ()
 
         current = goal
         # backtrack from goal to agent
@@ -597,13 +601,13 @@ class AdaptiveAStarAlgorithm(AgentAlgorithm):
             current = current.parent
 
         path.reverse()
-        return path
+        return tuple(path)
 
 
 def h_to_color(value, roof=200):
     alpha = min(value, roof) / roof
     inv = 1 - alpha
-    return [int(255*alpha), int(255*inv), 0]
+    return int(255*alpha), int(255*inv), 0
 
 
 class PygameHandler:
@@ -716,6 +720,30 @@ class PygameHandler:
                 pygame.draw.rect(self.GridSurface, color2, (
                     node.x * block_width + 10, node.y * block_width + 10, block_width + 1, block_width + 1), 1)
 
+def get_size(obj, seen=None):
+    """Recursively finds size of objects in bytes"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if hasattr(obj, '__dict__'):
+        for cls in obj.__class__.__mro__:
+            if '__dict__' in cls.__dict__:
+                d = cls.__dict__['__dict__']
+                if inspect.isgetsetdescriptor(d) or inspect.ismemberdescriptor(d):
+                    size += get_size(obj.__dict__, seen)
+                break
+    if isinstance(obj, dict):
+        size += sum((get_size(v, seen) for v in obj.values()))
+        size += sum((get_size(k, seen) for k in obj.keys()))
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum((get_size(i, seen) for i in obj))
+    return size
 
 class ProcessingThread(threading.Thread):
     def __init__(self, start, end, algorithm, seed_=None, full_sim=False, pyhandler=None, limit_g=False):
@@ -734,10 +762,8 @@ class ProcessingThread(threading.Thread):
 
         runs = 50 if self.full_sim else 1
         print("Entering execution portion")
-
+        maze = None
         start_time = monotonic()
-        # tracker for memory usage
-        tr = tracker.SummaryTracker()
 
         for i in range(runs):
             seed_ = i if self.full_sim else self.seed
@@ -766,16 +792,25 @@ class ProcessingThread(threading.Thread):
             print(self.start_node, self.end_node)
             self.start_node.mark_start()
             self.end_node.mark_goal()
-            loop_start = monotonic()
             self.algorithm.run(maze, self.start_node, self.end_node)
-            loop_end = monotonic()
-            seed_ = i
+            # reset for optimal path finding
+            #for row in maze.maze:
+            #    for node in row:
+            #        node.reset()
+
+            #optimal_alg = Optimal(False, False)
+            #optimal = optimal_alg.compute_path(maze, self.start_node, self.end_node)
+            #optimal_len = len(optimal)
+            #optimal_steps = optimal_alg.total
+            #print("Optimal route:      %d nodes" % optimal_len)
+            #print("Optimal expanded:   %d nodes" % optimal_steps)
+
             self.start_node = None
             self.end_node = None
-            print("Time in seconds:   ", loop_end - loop_start)
+
         end_time = monotonic()
-        print("Total time:         ", end_time - start_time)
-        tr.print_diff()
+        print("Total time:        ", end_time - start_time)
+        print("Maze size:         ", get_size(maze))
 
 
 def main():
