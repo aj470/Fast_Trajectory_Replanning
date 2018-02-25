@@ -1,0 +1,469 @@
+Entering execution portion
+Using maze seed:    1
+Node<13, 79> Node<93, 36>
+Algorithm expanded: 6801 nodes
+Iterations:         113
+Agent visited:      335 nodes
+Visits/iteration:   60 nodes
+Optimal route:      159 nodes
+Optimal expanded:   3766 nodes
+Time in seconds:    1.044539698996232
+Using maze seed:    2
+Node<9, 95> Node<87, 31>
+Algorithm expanded: 5580 nodes
+Iterations:         86
+Agent visited:      271 nodes
+Visits/iteration:   64 nodes
+Optimal route:      166 nodes
+Optimal expanded:   3006 nodes
+Time in seconds:    0.9137786170031177
+Using maze seed:    4
+Node<12, 94> Node<81, 46>
+Algorithm expanded: 6496 nodes
+Iterations:         130
+Agent visited:      331 nodes
+Visits/iteration:   49 nodes
+Optimal route:      133 nodes
+Optimal expanded:   2226 nodes
+Time in seconds:    0.7551033789932262
+Using maze seed:    8
+Node<19, 65> Node<97, 48>
+Algorithm expanded: 9123 nodes
+Iterations:         151
+Agent visited:      346 nodes
+Visits/iteration:   60 nodes
+Optimal route:      159 nodes
+Optimal expanded:   3932 nodes
+Time in seconds:    1.2254536819964414
+Using maze seed:    16
+Node<12, 4> Node<83, 96>
+Algorithm expanded: 6210 nodes
+Iterations:         95
+Agent visited:      273 nodes
+Visits/iteration:   65 nodes
+Optimal route:      177 nodes
+Optimal expanded:   3543 nodes
+Time in seconds:    1.122658700987813
+Using maze seed:    32
+Node<17, 12> Node<79, 95>
+Algorithm expanded: 6578 nodes
+Iterations:         91
+Agent visited:      252 nodes
+Visits/iteration:   72 nodes
+Optimal route:      171 nodes
+Optimal expanded:   3358 nodes
+Time in seconds:    1.157605524000246
+Using maze seed:    64
+Node<6, 56> Node<88, 42>
+Algorithm expanded: 5610 nodes
+Iterations:         120
+Agent visited:      278 nodes
+Visits/iteration:   46 nodes
+Optimal route:      152 nodes
+Optimal expanded:   2928 nodes
+Time in seconds:    0.7516194829950109
+Using maze seed:    128
+Node<14, 65> Node<84, 23>
+Algorithm expanded: 6079 nodes
+Iterations:         130
+Agent visited:      284 nodes
+Visits/iteration:   46 nodes
+Optimal route:      140 nodes
+Optimal expanded:   2840 nodes
+Time in seconds:    0.8089117170020472
+Using maze seed:    256
+Node<21, 33> Node<82, 65>
+Algorithm expanded: 3556 nodes
+Iterations:         94
+Agent visited:      253 nodes
+Visits/iteration:   37 nodes
+Optimal route:      125 nodes
+Optimal expanded:   2460 nodes
+Time in seconds:    0.44917997300217394
+Using maze seed:    512
+Node<14, 39> Node<100, 72>
+Algorithm expanded: 8019 nodes
+Iterations:         130
+Agent visited:      357 nodes
+Visits/iteration:   61 nodes
+Optimal route:      175 nodes
+Optimal expanded:   4732 nodes
+Time in seconds:    1.1703306199924555
+Using maze seed:    1024
+Node<10, 90> Node<75, 31>
+Algorithm expanded: 4799 nodes
+Iterations:         96
+Agent visited:      240 nodes
+Visits/iteration:   49 nodes
+Optimal route:      134 nodes
+Optimal expanded:   2280 nodes
+Time in seconds:    0.6750011099939002
+Using maze seed:    2048
+Node<10, 67> Node<82, 43>
+Algorithm expanded: 5937 nodes
+Iterations:         120
+Agent visited:      287 nodes
+Visits/iteration:   49 nodes
+Optimal route:      124 nodes
+Optimal expanded:   2101 nodes
+Time in seconds:    0.7156983400054742
+Using maze seed:    4096
+Node<1, 79> Node<88, 16>
+Algorithm expanded: 7935 nodes
+Iterations:         127
+Agent visited:      344 nodes
+Visits/iteration:   62 nodes
+Optimal route:      188 nodes
+Optimal expanded:   4183 nodes
+Time in seconds:    1.1577135770057794
+Using maze seed:    8192
+Node<22, 23> Node<84, 85>
+Algorithm expanded: 5239 nodes
+Iterations:         105
+Agent visited:      292 nodes
+Visits/iteration:   49 nodes
+Optimal route:      146 nodes
+Optimal expanded:   3081 nodes
+Time in seconds:    0.7755678469984559
+Using maze seed:    16384
+Node<2, 87> Node<91, 1>
+Algorithm expanded: 4679 nodes
+Iterations:         55
+Agent visited:      282 nodes
+Visits/iteration:   85 nodes
+Optimal route:      195 nodes
+Optimal expanded:   4173 nodes
+Time in seconds:    0.9827091299957829
+Using maze seed:    32768
+Node<8, 54> Node<100, 24>
+Algorithm expanded: 6325 nodes
+Iterations:         114
+Agent visited:      289 nodes
+Visits/iteration:   55 nodes
+Optimal route:      158 nodes
+Optimal expanded:   3396 nodes
+Time in seconds:    0.949950310998247
+Using maze seed:    65536
+Node<19, 54> Node<83, 2>
+Algorithm expanded: 4919 nodes
+Iterations:         78
+Agent visited:      223 nodes
+Visits/iteration:   63 nodes
+Optimal route:      152 nodes
+Optimal expanded:   2977 nodes
+Time in seconds:    0.84580624299997
+Using maze seed:    131072
+Node<18, 26> Node<100, 98>
+Algorithm expanded: 8478 nodes
+Iterations:         120
+Agent visited:      316 nodes
+Visits/iteration:   70 nodes
+Optimal route:      166 nodes
+Optimal expanded:   3876 nodes
+Time in seconds:    1.3651173639955232
+Using maze seed:    262144
+Node<20, 6> Node<83, 80>
+Algorithm expanded: 7419 nodes
+Iterations:         124
+Agent visited:      331 nodes
+Visits/iteration:   59 nodes
+Optimal route:      145 nodes
+Optimal expanded:   2376 nodes
+Time in seconds:    1.0449976429954404
+Using maze seed:    524288
+Node<10, 37> Node<77, 65>
+Algorithm expanded: 7937 nodes
+Iterations:         150
+Agent visited:      357 nodes
+Visits/iteration:   52 nodes
+Optimal route:      139 nodes
+Optimal expanded:   3244 nodes
+Time in seconds:    1.0015925830084598
+Using maze seed:    1048576
+Node<14, 25> Node<94, 58>
+Algorithm expanded: 6390 nodes
+Iterations:         113
+Agent visited:      266 nodes
+Visits/iteration:   56 nodes
+Optimal route:      165 nodes
+Optimal expanded:   3107 nodes
+Time in seconds:    0.9177380239998456
+Using maze seed:    2097152
+Node<24, 67> Node<78, 3>
+Algorithm expanded: 4220 nodes
+Iterations:         79
+Agent visited:      221 nodes
+Visits/iteration:   53 nodes
+Optimal route:      126 nodes
+Optimal expanded:   1921 nodes
+Time in seconds:    0.6450274090020685
+Using maze seed:    4194304
+Node<6, 93> Node<100, 42>
+Algorithm expanded: 10222 nodes
+Iterations:         151
+Agent visited:      404 nodes
+Visits/iteration:   67 nodes
+Optimal route:      181 nodes
+Optimal expanded:   4062 nodes
+Time in seconds:    1.4669432340015192
+Using maze seed:    8388608
+Node<14, 61> Node<96, 40>
+Algorithm expanded: 4940 nodes
+Iterations:         109
+Agent visited:      265 nodes
+Visits/iteration:   45 nodes
+Optimal route:      151 nodes
+Optimal expanded:   3136 nodes
+Time in seconds:    0.7245500310091302
+Using maze seed:    16777216
+Node<1, 51> Node<88, 3>
+Algorithm expanded: 5775 nodes
+Iterations:         89
+Agent visited:      249 nodes
+Visits/iteration:   64 nodes
+Optimal route:      161 nodes
+Optimal expanded:   2644 nodes
+Time in seconds:    1.571387711999705
+Using maze seed:    33554432
+Node<7, 73> Node<95, 23>
+Algorithm expanded: 9024 nodes
+Iterations:         150
+Agent visited:      386 nodes
+Visits/iteration:   60 nodes
+Optimal route:      170 nodes
+Optimal expanded:   3816 nodes
+Time in seconds:    1.3093899410014274
+Using maze seed:    67108864
+Node<3, 70> Node<82, 26>
+Algorithm expanded: 5955 nodes
+Iterations:         106
+Agent visited:      291 nodes
+Visits/iteration:   56 nodes
+Optimal route:      147 nodes
+Optimal expanded:   2580 nodes
+Time in seconds:    0.8479892510076752
+Using maze seed:    134217728
+Node<1, 39> Node<89, 65>
+Algorithm expanded: 10144 nodes
+Iterations:         139
+Agent visited:      340 nodes
+Visits/iteration:   72 nodes
+Optimal route:      152 nodes
+Optimal expanded:   2944 nodes
+Time in seconds:    1.326558714004932
+Using maze seed:    268435456
+Node<4, 35> Node<90, 54>
+Algorithm expanded: 6310 nodes
+Iterations:         123
+Agent visited:      300 nodes
+Visits/iteration:   51 nodes
+Optimal route:      181 nodes
+Optimal expanded:   4186 nodes
+Time in seconds:    0.9243643119989429
+Using maze seed:    536870912
+Node<20, 30> Node<82, 77>
+Algorithm expanded: 3018 nodes
+Iterations:         71
+Agent visited:      189 nodes
+Visits/iteration:   42 nodes
+Optimal route:      129 nodes
+Optimal expanded:   2487 nodes
+Time in seconds:    0.4793294050032273
+Using maze seed:    1073741824
+Node<11, 2> Node<89, 54>
+Algorithm expanded: 5458 nodes
+Iterations:         91
+Agent visited:      264 nodes
+Visits/iteration:   59 nodes
+Optimal route:      146 nodes
+Optimal expanded:   2184 nodes
+Time in seconds:    0.8261476240004413
+Using maze seed:    2147483648
+Node<22, 66> Node<93, 37>
+Algorithm expanded: 4795 nodes
+Iterations:         94
+Agent visited:      258 nodes
+Visits/iteration:   51 nodes
+Optimal route:      126 nodes
+Optimal expanded:   2476 nodes
+Time in seconds:    0.6400931980024325
+Using maze seed:    4294967296
+Node<5, 66> Node<78, 5>
+Algorithm expanded: 6343 nodes
+Iterations:         128
+Agent visited:      327 nodes
+Visits/iteration:   49 nodes
+Optimal route:      160 nodes
+Optimal expanded:   3049 nodes
+Time in seconds:    0.9082067090057535
+Using maze seed:    8589934592
+Node<4, 22> Node<85, 87>
+Algorithm expanded: 8095 nodes
+Iterations:         162
+Agent visited:      385 nodes
+Visits/iteration:   49 nodes
+Optimal route:      186 nodes
+Optimal expanded:   4181 nodes
+Time in seconds:    1.1731609599955846
+Using maze seed:    17179869184
+Node<6, 5> Node<86, 62>
+Algorithm expanded: 10049 nodes
+Iterations:         171
+Agent visited:      430 nodes
+Visits/iteration:   58 nodes
+Optimal route:      169 nodes
+Optimal expanded:   2961 nodes
+Time in seconds:    1.438895536994096
+Using maze seed:    34359738368
+Node<1, 62> Node<92, 16>
+Algorithm expanded: 8745 nodes
+Iterations:         123
+Agent visited:      333 nodes
+Visits/iteration:   71 nodes
+Optimal route:      177 nodes
+Optimal expanded:   3905 nodes
+Time in seconds:    1.3728086820046883
+Using maze seed:    68719476736
+Node<8, 49> Node<96, 57>
+Algorithm expanded: 9084 nodes
+Iterations:         145
+Agent visited:      348 nodes
+Visits/iteration:   62 nodes
+Optimal route:      164 nodes
+Optimal expanded:   3780 nodes
+Time in seconds:    1.3610091770096915
+Using maze seed:    137438953472
+Node<7, 48> Node<77, 89>
+Algorithm expanded: 4373 nodes
+Iterations:         100
+Agent visited:      235 nodes
+Visits/iteration:   43 nodes
+Optimal route:      143 nodes
+Optimal expanded:   2945 nodes
+Time in seconds:    0.6938273549894802
+Using maze seed:    274877906944
+Node<3, 78> Node<89, 15>
+Algorithm expanded: 6093 nodes
+Iterations:         113
+Agent visited:      309 nodes
+Visits/iteration:   53 nodes
+Optimal route:      169 nodes
+Optimal expanded:   3207 nodes
+Time in seconds:    0.9383026080031414
+Using maze seed:    549755813888
+Node<1, 84> Node<98, 4>
+Algorithm expanded: 8266 nodes
+Iterations:         109
+Agent visited:      329 nodes
+Visits/iteration:   75 nodes
+Optimal route:      201 nodes
+Optimal expanded:   3894 nodes
+Time in seconds:    1.687618490002933
+Using maze seed:    1099511627776
+Node<7, 29> Node<89, 75>
+Algorithm expanded: 7070 nodes
+Iterations:         126
+Agent visited:      328 nodes
+Visits/iteration:   56 nodes
+Optimal route:      156 nodes
+Optimal expanded:   3515 nodes
+Time in seconds:    1.065359284999431
+Using maze seed:    2199023255552
+Node<21, 42> Node<95, 90>
+Algorithm expanded: 4667 nodes
+Iterations:         103
+Agent visited:      276 nodes
+Visits/iteration:   45 nodes
+Optimal route:      150 nodes
+Optimal expanded:   3379 nodes
+Time in seconds:    0.706376559988712
+Using maze seed:    4398046511104
+Node<1, 79> Node<98, 3>
+Algorithm expanded: 7650 nodes
+Iterations:         102
+Agent visited:      334 nodes
+Visits/iteration:   75 nodes
+Optimal route:      203 nodes
+Optimal expanded:   4153 nodes
+Time in seconds:    1.4110442740056897
+Using maze seed:    8796093022208
+Node<0, 95> Node<80, 1>
+Algorithm expanded: 9160 nodes
+Iterations:         105
+Agent visited:      304 nodes
+Visits/iteration:   87 nodes
+Optimal route:      192 nodes
+Optimal expanded:   3371 nodes
+Time in seconds:    1.6658724339940818
+Using maze seed:    17592186044416
+Node<11, 56> Node<95, 22>
+Algorithm expanded: 7007 nodes
+Iterations:         119
+Agent visited:      319 nodes
+Visits/iteration:   58 nodes
+Optimal route:      162 nodes
+Optimal expanded:   3699 nodes
+Time in seconds:    0.9941916730022058
+Using maze seed:    35184372088832
+Node<12, 35> Node<75, 50>
+Algorithm expanded: 3956 nodes
+Iterations:         94
+Agent visited:      208 nodes
+Visits/iteration:   42 nodes
+Optimal route:      138 nodes
+Optimal expanded:   2580 nodes
+Time in seconds:    0.5234987209987594
+Using maze seed:    70368744177664
+Node<8, 34> Node<84, 99>
+Algorithm expanded: 6358 nodes
+Iterations:         98
+Agent visited:      279 nodes
+Visits/iteration:   64 nodes
+Optimal route:      161 nodes
+Optimal expanded:   3075 nodes
+Time in seconds:    1.0831636210059514
+Using maze seed:    140737488355328
+Node<10, 39> Node<92, 80>
+Algorithm expanded: 6264 nodes
+Iterations:         115
+Agent visited:      306 nodes
+Visits/iteration:   54 nodes
+Optimal route:      177 nodes
+Optimal expanded:   4624 nodes
+Time in seconds:    1.0425552079977933
+Using maze seed:    281474976710656
+Node<22, 12> Node<96, 69>
+Algorithm expanded: 7804 nodes
+Iterations:         128
+Agent visited:      322 nodes
+Visits/iteration:   60 nodes
+Optimal route:      139 nodes
+Optimal expanded:   2334 nodes
+Time in seconds:    1.0287321920040995
+Using maze seed:    562949953421312
+Node<19, 87> Node<99, 1>
+Algorithm expanded: 7150 nodes
+Iterations:         95
+Agent visited:      288 nodes
+Visits/iteration:   75 nodes
+Optimal route:      178 nodes
+Optimal expanded:   4071 nodes
+Time in seconds:    1.2699401559948456
+Total time:          53.7638939620083
+                               types |   # objects |   total size
+==================================== | =========== | ============
+                        <class 'list |        3922 |    373.69 KB
+                         <class 'str |        3922 |    272.77 KB
+                         <class 'int |         744 |     20.34 KB
+                       <class 'bytes |         215 |     11.85 KB
+                        <class 'type |           0 |    816     B
+           <class 'collections.deque |           1 |    632     B
+                        <class 'dict |           3 |    336     B
+                        <class 'code |           1 |    144     B
+  <class 'builtin_function_or_method |           2 |    144     B
+               function (store_info) |           1 |    136     B
+                        <class 'cell |           2 |     96     B
+                     <class 'weakref |           1 |     80     B
+                       <class 'tuple |           1 |     64     B
+   <class '__main__.ProcessingThread |           1 |     56     B
+             <class 'threading.Event |           1 |     56     B

@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 
-
 # Assignment 1: Fast Trajectory Re-planning
 # CS 440: Intro to Artificial Intelligence
 # Due date: 26th February 2018
@@ -12,9 +11,8 @@ import threading
 from random import *
 import sys
 import argparse
-from functools import total_ordering
 from pympler import tracker
-from time import sleep
+from time import sleep, monotonic
 
 # Convention for the Environment
 # Initialize Grid
@@ -103,7 +101,13 @@ def heuristic(start, goal):
     return abs(goal.x - start.x) + abs(goal.y - start.y)
 
 
-@total_ordering
+def heuristic_adaptive(start, goal):
+    if goal.g() != sys.maxsize:
+        print(abs(goal.x - start.x) + abs(goal.y), " => ", goal.g() - start.g())
+        return goal.g() - start.g()
+    return abs(goal.x - start.x) + abs(goal.y - start.y)
+
+
 class Node:
     def __init__(self, x, y):
         self.x = x
@@ -250,7 +254,7 @@ class MazeBuilder:
     def __init__(self, rows, cols, maze_seed=None, limit=False):
         if maze_seed is None:
             maze_seed = randrange(0, 10000)
-        print("Using maze seed:   %d" % maze_seed)
+        print("Using maze seed:    %d" % maze_seed)
         seed(maze_seed)
         self.rows = rows
         self.cols = cols
@@ -426,8 +430,10 @@ class AgentAlgorithm:
                     clock.tick(30)
 
             for node in path:
-                node.color(h_to_color(node.h()))
+                node.color(h_to_color(node.h(), roof=GridCols+GridRows))
 
+        for node in final_path:
+            node.color((150, 0, 0))
         # reset for optimal path finding
         for row in grid.maze:
             for node in row:
@@ -435,12 +441,12 @@ class AgentAlgorithm:
 
         optimal_alg = Optimal(False, False)
         optimal = optimal_alg.compute_path(grid, start, end)
-        print("Algorithm visited: %d nodes" % self.total)
-        print("Iterations:        %d" % self.counter)
-        print("Agent visited:     %d nodes" % len(final_path))
-        print("Visits/iteration:  %d nodes" % (self.total / self.counter))
-        print("Optimal route:     %d nodes" % len(optimal))
-        print("Optimal visits:    %d nodes" % optimal_alg.total)
+        print("Algorithm expanded: %d nodes" % self.total)
+        print("Iterations:         %d" % self.counter)
+        print("Agent visited:      %d nodes" % len(final_path))
+        print("Visits/iteration:   %d nodes" % (self.total / self.counter))
+        print("Optimal route:      %d nodes" % len(optimal))
+        print("Optimal expanded:   %d nodes" % optimal_alg.total)
 
 
 class Optimal(AgentAlgorithm):
@@ -454,12 +460,13 @@ class Optimal(AgentAlgorithm):
     def compute_path(self, grid, start, goal):
         start.g(0)
         start.search(self.counter)
-        start.h(heuristic2(start, goal))
+        start.h(heuristic(start, goal))
         open_list = [start]
         path = []
 
         while goal.g() > open_list[0].f():
             current = heappop(open_list)
+            self.total += 1
             for neighbor in grid.neighbors(current):
                 if neighbor.search() < self.counter:
                     neighbor.g(sys.maxsize)
@@ -467,13 +474,12 @@ class Optimal(AgentAlgorithm):
                 if current.g() + self.cost(current, neighbor) < neighbor.g():
                     neighbor.g(current.g() + self.cost(current, neighbor))
                     neighbor.parent = current
-                    self.total += 1
 
                     if neighbor in open_list:
                         open_list.remove(neighbor)
                         heapify(open_list)
 
-                    neighbor.h(heuristic2(neighbor, goal))
+                    neighbor.h(heuristic(neighbor, goal))
                     heappush(open_list, neighbor)
 
         if len(open_list) == 0:
@@ -487,7 +493,6 @@ class Optimal(AgentAlgorithm):
 
         path.reverse()
         return path
-
 
 
 class RandomAlgorithm(AgentAlgorithm):
@@ -504,9 +509,8 @@ class AStarAlgorithm(AgentAlgorithm):
         open_list = [start]
         path = []
 
-        i = 0
         while goal.g() > open_list[0].f():
-            i += 1
+            self.total += 1
             current = heappop(open_list)
             # print(current, current.g(), current.f())
 
@@ -521,7 +525,6 @@ class AStarAlgorithm(AgentAlgorithm):
                 if current.g() + self.cost(current, neighbor) < neighbor.g():
                     neighbor.g(current.g() + self.cost(current, neighbor))
                     neighbor.parent = current
-                    self.total += 1
 
                     if neighbor in open_list:
                         open_list.remove(neighbor)
@@ -531,6 +534,58 @@ class AStarAlgorithm(AgentAlgorithm):
                     heappush(open_list, neighbor)
 
         #print("A* visited %d nodes" % i)
+
+        if len(open_list) == 0:
+            return []
+
+        current = goal
+        # backtrack from goal to agent
+        while current != start:
+            path.append(current)
+            current = current.parent
+
+        path.reverse()
+        return path
+
+
+class AdaptiveAStarAlgorithm(AgentAlgorithm):
+
+    def compute_path(self, grid, start, goal):
+        open_list = [start]
+        closed = set()
+        path = []
+
+        start.h(heuristic(start, goal))
+
+        while goal.g() > open_list[0].f():
+            self.total += 1
+            current = heappop(open_list)
+            closed.add(current)
+            # print(current, current.g(), current.f())
+
+            current.color(h_to_color(current.h(), roof=GridCols+GridRows))
+            if self.limit_a:
+                sleep(0.005)
+
+            for neighbor in grid.neighbors(current):
+                if neighbor.search() < self.counter:
+                    neighbor.g(sys.maxsize)
+                    neighbor.search(self.counter)
+                if current.g() + self.cost(current, neighbor) < neighbor.g():
+                    neighbor.g(current.g() + self.cost(current, neighbor))
+                    neighbor.parent = current
+
+                    if neighbor in open_list:
+                        open_list.remove(neighbor)
+                        heapify(open_list)
+
+                    neighbor.h(heuristic(neighbor, goal))
+                    heappush(open_list, neighbor)
+
+        for node in closed:
+            #if node.h() < goal.g() - node.g():
+            #    print("%d => %d" % (node.h(), goal.g() - node.g()))
+            node.h(goal.g() - node.g())
 
         if len(open_list) == 0:
             return []
@@ -649,11 +704,11 @@ class PygameHandler:
                 elif node.goal():
                     color1 = (255, 0, 0)
                     color2 = (100, 100, 100)
-                elif node.color():
-                    color1 = node.color()
                 elif not node.visited() and self.hide_unvisited:
                     color1 = (40, 40, 40)
-                    color2 = (40, 40, 40)
+                    color2 = (0, 0, 0)
+                elif node.color():
+                    color1 = node.color()
                 # more color options go here
 
                 pygame.draw.rect(self.GridSurface, color1,
@@ -679,6 +734,10 @@ class ProcessingThread(threading.Thread):
 
         runs = 50 if self.full_sim else 1
         print("Entering execution portion")
+
+        start_time = monotonic()
+        # tracker for memory usage
+        tr = tracker.SummaryTracker()
 
         for i in range(runs):
             seed_ = i if self.full_sim else self.seed
@@ -707,10 +766,16 @@ class ProcessingThread(threading.Thread):
             print(self.start_node, self.end_node)
             self.start_node.mark_start()
             self.end_node.mark_goal()
+            loop_start = monotonic()
             self.algorithm.run(maze, self.start_node, self.end_node)
+            loop_end = monotonic()
             seed_ = i
             self.start_node = None
             self.end_node = None
+            print("Time in seconds:   ", loop_end - loop_start)
+        end_time = monotonic()
+        print("Total time:         ", end_time - start_time)
+        tr.print_diff()
 
 
 def main():
@@ -756,7 +821,7 @@ def main():
         quit()
 
     # populate this array with algorithms corresponding to the argument options
-    algorithms = [AStarAlgorithm(limit_m, limit_a)]
+    algorithms = [AStarAlgorithm(limit_m, limit_a), AdaptiveAStarAlgorithm(limit_m, limit_a)]
     algorithm = algorithms[algorithm - 1]
 
     maze_builder = None
@@ -768,28 +833,23 @@ def main():
     # set thread name so that processing thread and identify whether or not it is the main thread
     # if it is not the main thread, is sleeps to allow pygame to initialize
     threading.current_thread().setName("__main__")
-    # tracker for memory usage
-    tr = tracker.SummaryTracker()
 
     if run_random:
         map_number = None
         start = None
         goal = None
 
-    try:
-        # if we're visualizing, run the processing in another thread, and run the pygame handler here
-        if visual:
-            pygame_handler = PygameHandler()
-            processing_t = ProcessingThread(start, goal, algorithm, map_number, full_sim, pygame_handler, limit_g)
-            processing_t.daemon = True    # set as daemon so it dies with the main thread
-            processing_t.start()
-            pygame_handler.run()
-        else:
-            # otherwise, we run the processing in the main thread
-            processing_t = ProcessingThread(start, goal, algorithm, map_number, full_sim, limit_g=limit_g)
-            processing_t.run()
-    finally:
-        tr.print_diff()
+    # if we're visualizing, run the processing in another thread, and run the pygame handler here
+    if visual:
+        pygame_handler = PygameHandler()
+        processing_t = ProcessingThread(start, goal, algorithm, map_number, full_sim, pygame_handler, limit_g)
+        processing_t.daemon = True    # set as daemon so it dies with the main thread
+        processing_t.start()
+        pygame_handler.run()
+    else:
+        # otherwise, we run the processing in the main thread
+        processing_t = ProcessingThread(start, goal, algorithm, map_number, full_sim, limit_g=limit_g)
+        processing_t.run()
 
 
 if __name__ == "__main__":
