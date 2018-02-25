@@ -349,7 +349,7 @@ class MazeBuilder:
             possible_bridge = tuple(filter(lambda x: x and not x.blocked(), extended_neighbors))
             # chance we create a bridge between two tunnels
             # this prevents there from being precisely 1 path between any two points
-            if len(possible_bridge) > 0 and random() < 0.3:
+            if len(possible_bridge) > 0 and random() < 0.4:
                 node = possible_bridge[0]
                 middle = self.grid.node(int((current.x + node.x) / 2), int((current.y + node.y) / 2))
                 middle.unblock()
@@ -372,6 +372,13 @@ class MazeBuilder:
             middle.unblock()
             backtrace.append(current)
             current = node
+        return self.grid
+
+    def build3(self):
+        for row in self.grid.maze:
+            for node in row:
+                if random() < 0.3:
+                    node.block()
         return self.grid
 
 
@@ -582,7 +589,8 @@ class AdaptiveAStarAlgorithm(AgentAlgorithm):
                         open_list.remove(neighbor)
                         heapify(open_list)
 
-                    neighbor.h(heuristic(neighbor, goal))
+                    if neighbor.h() == sys.maxsize:
+                        neighbor.h(heuristic(neighbor, goal))
                     heappush(open_list, neighbor)
 
         for node in closed:
@@ -764,7 +772,7 @@ class ProcessingThread(threading.Thread):
 
         for i in range(runs):
             seed_ = i if self.full_sim else self.seed
-            seed_ = int((2**seed_)) if seed_ is not None else seed_
+            seed_ = int((2**seed_) - 1) if seed_ is not None else seed_
             builder = MazeBuilder(GridRows, GridCols, seed_, self.limit_g)
             if self.pyhandler:
                 self.pyhandler.grid = builder.grid
@@ -791,16 +799,18 @@ class ProcessingThread(threading.Thread):
             self.end_node.mark_goal()
             self.algorithm.run(maze, self.start_node, self.end_node)
             # reset for optimal path finding
-            #for row in maze.maze:
-            #    for node in row:
-            #        node.reset()
+            for row in maze.maze:
+                for node in row:
+                    node.h(sys.maxsize)
+                    node.g(sys.maxsize)
+                    node.search(0)
 
-            #optimal_alg = Optimal(False, False)
-            #optimal = optimal_alg.compute_path(maze, self.start_node, self.end_node)
-            #optimal_len = len(optimal)
-            #optimal_steps = optimal_alg.total
-            #print("Optimal route:      %d nodes" % optimal_len)
-            #print("Optimal expanded:   %d nodes" % optimal_steps)
+            optimal_alg = Optimal(False, False)
+            optimal = optimal_alg.compute_path(maze, self.start_node, self.end_node)
+            optimal_len = len(optimal)
+            optimal_steps = optimal_alg.total
+            print("Optimal route:      %d nodes" % optimal_len)
+            print("Optimal expanded:   %d nodes" % optimal_steps)
 
             self.start_node = None
             self.end_node = None
