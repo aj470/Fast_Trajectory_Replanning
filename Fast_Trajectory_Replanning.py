@@ -4,7 +4,6 @@
 # CS 440: Intro to Artificial Intelligence
 # Due date: 26th February 2018
 # authors: Ayush Joshi, Nikhil Mathur, and Dan Snyder
-import inspect
 
 import pygame
 from pygame.locals import *
@@ -720,6 +719,7 @@ class PygameHandler:
                 pygame.draw.rect(self.GridSurface, color2, (
                     node.x * block_width + 10, node.y * block_width + 10, block_width + 1, block_width + 1), 1)
 
+
 def get_size(obj, seen=None):
     """Recursively finds size of objects in bytes"""
     size = sys.getsizeof(obj)
@@ -732,18 +732,15 @@ def get_size(obj, seen=None):
     # self-referential objects
     seen.add(obj_id)
     if hasattr(obj, '__dict__'):
-        for cls in obj.__class__.__mro__:
-            if '__dict__' in cls.__dict__:
-                d = cls.__dict__['__dict__']
-                if inspect.isgetsetdescriptor(d) or inspect.ismemberdescriptor(d):
-                    size += get_size(obj.__dict__, seen)
-                break
+        for member in obj.__dict__.values():
+            size += get_size(member, seen)
     if isinstance(obj, dict):
         size += sum((get_size(v, seen) for v in obj.values()))
         size += sum((get_size(k, seen) for k in obj.keys()))
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
         size += sum((get_size(i, seen) for i in obj))
     return size
+
 
 class ProcessingThread(threading.Thread):
     def __init__(self, start, end, algorithm, seed_=None, full_sim=False, pyhandler=None, limit_g=False):
@@ -809,8 +806,8 @@ class ProcessingThread(threading.Thread):
             self.end_node = None
 
         end_time = monotonic()
-        print("Total time:        ", end_time - start_time)
-        print("Maze size:         ", get_size(maze))
+        print("Total time:        ", end_time - start_time, "seconds")
+        print("Maze size:         ", get_size(Node(0, 0))*GridRows*GridCols, "bytes")
 
 
 def main():
