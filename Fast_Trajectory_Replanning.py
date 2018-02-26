@@ -786,7 +786,13 @@ class ProcessingThread(threading.Thread):
             half_h = int(maze.rows / 2)
             start_half = randrange(0, 2)  # randomly pick either top half or bottom half
             end_half = 1 - start_half
-
+            if self.start_node is not None and self.end_node is not None:
+                self.start_node = maze.node(self.start_node[0],self.start_node[1])
+                self.start_node.unblock()
+                self.start_node.visited()
+                self.end_node = maze.node(self.end_node[0],self.end_node[1])
+                self.end_node.unblock()
+                self.end_node.visited()
             while self.start_node is None:
                 # pick a starting point in the leftmost quarter of the board
                 node = maze.node(randrange(0, int(maze.cols/4)), randrange(start_half*half_h, (start_half+1)*half_h))
@@ -870,10 +876,17 @@ def main():
     # populate this array with algorithms corresponding to the argument options
     algorithms = [AStarAlgorithm(limit_m, limit_a), ReverseAStar(limit_m, limit_a), AdaptiveAStarAlgorithm(limit_m, limit_a)]
     algorithm = algorithms[algorithm - 1]
+    
+    if None in start_coords and None in goal_coords:
+        start = None
+        goal = None
+    else:
+        start = start_coords
+        goal = goal_coords
+        
 
     maze_builder = None
-    #start = None
-    #goal = None
+    
     num_runs = 50 if full_sim else 1
     map_number = 0 if full_sim else map_number
 
