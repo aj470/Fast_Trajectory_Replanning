@@ -122,6 +122,8 @@ class Node:
 
     colors = (None, (150, 0, 0), (80, 80, 120))
 
+    tie_breaker = lambda x, y: x.g() > y.g()
+
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -217,7 +219,7 @@ class Node:
     def __lt__(self, other):
         if isinstance(other, Node):
             if self.f() == other.f():
-                return self.g() > other.g()
+                return Node.tie_breaker(self, other)
             return self.f() < other.f()
         raise ValueError("Object must be of type Node not '%s'" % str(type(other)))
 
@@ -311,7 +313,7 @@ class MazeBuilder:
                 self.grid.node(current.x, current.y + 2),
                 self.grid.node(current.x - 2, current.y),
                 self.grid.node(current.x + 2, current.y)
-        )
+            )
 
             possible_bridge = tuple(filter(lambda x: x and not x.blocked(), extended_neighbors))
             # chance we create a bridge between two tunnels
@@ -419,51 +421,6 @@ class AgentAlgorithm:
         printb("Time in seconds:    %0.6f seconds" % (end_time - start_time))
 
 
-class Optimal(AgentAlgorithm):
-    @staticmethod
-    def cost(node, next_b):
-        if next_b.blocked():
-            return sys.maxsize
-        else:
-            return 1
-
-    def compute_path(self, grid, start, goal):
-        start.g(0)
-        start.search(self.counter)
-        start.h(heuristic(start, goal))
-        open_list = [start]
-        path = []
-
-        while goal.g() > open_list[0].f():
-            current = heappop(open_list)
-            self.total += 1
-            for neighbor in grid.neighbors(current):
-                if neighbor.search() < self.counter:
-                    neighbor.g(sys.maxsize)
-                    neighbor.search(self.counter)
-                if current.g() + self.cost(current, neighbor) < neighbor.g():
-                    neighbor.g(current.g() + self.cost(current, neighbor))
-                    neighbor.parent = current
-
-                    if neighbor in open_list:
-                        open_list.remove(neighbor)
-                        heapify(open_list)
-
-                    neighbor.h(heuristic(neighbor, goal))
-                    heappush(open_list, neighbor)
-
-        if len(open_list) == 0:
-            return ()
-
-        current = goal
-        # backtrack from goal to agent
-        while current != start:
-            path.append(current)
-            current = current.parent
-
-        path.reverse()
-        return tuple(path)
-
 class AStarAlgorithm(AgentAlgorithm):
 
     def compute_path(self, grid, start, goal):
@@ -508,6 +465,15 @@ class AStarAlgorithm(AgentAlgorithm):
 
         path.reverse()
         return tuple(path)
+
+
+class Optimal(AStarAlgorithm):
+    @staticmethod
+    def cost(node, next_b):
+        if next_b.blocked():
+            return sys.maxsize
+        else:
+            return 1
 
 
 class ReverseAStar(AStarAlgorithm):
@@ -769,6 +735,10 @@ class ProcessingThread(threading.Thread):
                     node.search(0)
 
             optimal_alg = Optimal(False, False)
+            self.start_node.g(0)
+            self.start_node.search(1)
+            self.end_node.h(0)
+            self.end_node.search(1)
             optimal = optimal_alg.compute_path(maze, self.start_node, self.end_node)
             optimal_len = len(optimal)
             optimal_steps = optimal_alg.total
@@ -802,6 +772,7 @@ def main():
     parser.add_argument("-lg", "--limit_generation", help="Whether or not to limit generation speed for visualization",
                         action='store_true')
     parser.add_argument("-f", "--full_sim", help="Run the set of 50 simulations", action='store_true')
+    parser.add_argument("-s", "--smaller", help="Tiebreaker is smaller g value instead of larger", action='store_true')
 
     args = vars(parser.parse_args())
 
@@ -816,6 +787,7 @@ def main():
     goal_coords = args['g_x'], args['g_y']
     run_random = args['random']
     map_number = args['m']
+    smaller = args['smaller']
 
     # ensure a valid set of arguments was passed
     if full_sim and run_random:
@@ -826,6 +798,9 @@ def main():
         print(parser.format_help())
         print("Starting and ending coordinates must be fully specified when not running full sim or randomly.")
         quit()
+
+    if smaller:
+        Node.tie_breaker = lambda x, y: x.g() < y.g()
 
     # populate this array with algorithms corresponding to the argument options
     algorithms = [AStarAlgorithm(limit_m, limit_a), ReverseAStar(limit_m, limit_a), AdaptiveAStarAlgorithm(limit_m, limit_a)]
