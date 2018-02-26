@@ -12,12 +12,24 @@ from random import *
 import sys
 import argparse
 from time import sleep, monotonic
+import info_parser
 
 
 # Initialize Grid Variables
 block_width = 8  # Drawing dimensions of block
 GridCols = 101  # No of columns
 GridRows = 101  # No of rows
+full_output = ""
+
+
+def printb(text):
+    global full_output
+    full_output += text + "\n"
+
+
+def get_print_buf():
+    global full_output
+    return full_output
 
 
 def sift(ls, node):
@@ -82,13 +94,6 @@ def heuristic2(start, goal):
 
 def heuristic(start, goal):
     # Manhattan distance
-    return abs(goal.x - start.x) + abs(goal.y - start.y)
-
-
-def heuristic_adaptive(start, goal):
-    if goal.g() != sys.maxsize:
-        print(abs(goal.x - start.x) + abs(goal.y), " => ", goal.g() - start.g())
-        return goal.g() - start.g()
     return abs(goal.x - start.x) + abs(goal.y - start.y)
 
 
@@ -246,7 +251,7 @@ class MazeBuilder:
     def __init__(self, rows, cols, maze_seed=None, limit=False):
         if maze_seed is None:
             maze_seed = randrange(0, 10000)
-        print("Using maze seed:    %d" % maze_seed)
+        printb("Using maze seed:    %d" % maze_seed)
         seed(maze_seed)
         self.rows = rows
         self.cols = cols
@@ -392,11 +397,11 @@ class AgentAlgorithm:
         for node in final_path:
             node.color(1)
 
-        print("Algorithm expanded: %d nodes" % self.total)
-        print("Iterations:         %d" % self.counter)
-        print("Agent visited:      %d nodes" % len(final_path))
-        print("Visits/iteration:   %d nodes" % (self.total / self.counter))
-        print("Time in seconds:    %0.6f seconds" % (end_time - start_time))
+        printb("Algorithm expanded: %d nodes" % self.total)
+        printb("Iterations:         %d" % self.counter)
+        printb("Agent visited:      %d nodes" % len(final_path))
+        printb("Visits/iteration:   %d nodes" % (self.total / self.counter))
+        printb("Time in seconds:    %0.6f seconds" % (end_time - start_time))
 
 
 class Optimal(AgentAlgorithm):
@@ -737,7 +742,7 @@ class ProcessingThread(threading.Thread):
                 if not node.blocked():
                     self.end_node = node
 
-            print(self.start_node, self.end_node)
+            printb(str(self.start_node) + " " + str(self.end_node))
             self.start_node.mark_start()
             self.end_node.mark_goal()
             self.algorithm.run(maze, self.start_node, self.end_node)
@@ -752,15 +757,17 @@ class ProcessingThread(threading.Thread):
             optimal = optimal_alg.compute_path(maze, self.start_node, self.end_node)
             optimal_len = len(optimal)
             optimal_steps = optimal_alg.total
-            print("Optimal route:      %d nodes" % optimal_len)
-            print("Optimal expanded:   %d nodes" % optimal_steps)
+            printb("Optimal route:      %d nodes" % optimal_len)
+            printb("Optimal expanded:   %d nodes" % optimal_steps)
 
             self.start_node = None
             self.end_node = None
 
         end_time = monotonic()
-        print("Total time:        ", end_time - start_time, "seconds")
-        print("Maze size:         ", get_size(Node(0, 0))*GridRows*GridCols, "bytes")
+        print("Total time:        %d seconds" % (end_time - start_time))
+        print("Maze size:         %d bytes" % (get_size(Node(0, 0))*GridRows*GridCols))
+        info_parser.parse(get_print_buf().split("\n"))
+
 
 
 def main():
