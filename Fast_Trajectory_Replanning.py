@@ -3,7 +3,7 @@
 # Assignment 1: Fast Trajectory Re-planning
 # CS 440: Intro to Artificial Intelligence
 # Due date: 26th February 2018
-# authors: Ayush Joshi, Nikhil Mathur, and Dan Snyder
+# authors: Ayush Joshi, Dan Snyder, and Nikhil Mathur
 
 import pygame
 from pygame.locals import *
@@ -13,26 +13,11 @@ import sys
 import argparse
 from time import sleep, monotonic
 
-# Convention for the Environment
-# Initialize Grid
-# 0 is blocked and 1 is unblocked for track_maze
-# 0 is unvisited and 1 is visited for track_maze
-# gn = get neighbour
-# nn = new neighbour
-# p = parent
 
-# Initialize Variables
-
+# Initialize Grid Variables
 block_width = 8  # Drawing dimensions of block
 GridCols = 101  # No of columns
 GridRows = 101  # No of rows
-
-"""
-          s          0
-      s        s     1 2
-   s    s   s    s   3 4 5 6
- s  s  s             7 8 9
-"""
 
 
 def sift(ls, node):
@@ -284,44 +269,6 @@ class MazeBuilder:
         return options[randrange(0, len(options))]
 
     def build(self):
-        backtrace = []
-        start_x = randrange(0, self.cols)
-        start_y = randrange(0, self.rows)
-        finished = False
-        start_node = self.grid.node(start_x, start_y)
-        current = start_node
-        current.visit()
-
-        clock = pygame.time.Clock()
-
-        while not finished:
-            if self.limit:
-              clock.tick(100)
-            next_node = self.random_neighbor(current)
-            if not next_node and current == start_node:
-                # we're back at the start with nowhere else to explore
-                finished = True
-            elif not next_node:
-                # reached a dead end -- begin back tracking
-                current = backtrace.pop()
-            elif next_node and self.init_node(next_node):
-                # there is an unblocked node to move to -- move to it
-                backtrace.append(current)
-                current = next_node
-            else:
-                # otherwise, there was a valid neighbor, but it is now blocked
-                continue
-
-        for row in self.grid.maze:
-            # mark all unvisited nodes as blocked
-            for node in row:
-                if not node.visited():
-                    node.block()
-                node.reset()
-        print("finished generating")
-        return self.grid
-
-    def build2(self):
         for row in self.grid.maze:
             for node in row:
                 node.block()
@@ -372,13 +319,6 @@ class MazeBuilder:
             middle.unblock()
             backtrace.append(current)
             current = node
-        return self.grid
-
-    def build3(self):
-        for row in self.grid.maze:
-            for node in row:
-                if random() < 0.3:
-                    node.block()
         return self.grid
 
 
@@ -503,14 +443,6 @@ class Optimal(AgentAlgorithm):
 
         path.reverse()
         return tuple(path)
-
-
-class RandomAlgorithm(AgentAlgorithm):
-    def compute_path(self, grid, start, goal):
-        neighbors = grid.neighbors(start)
-        self.total += 1
-        return [neighbors[randrange(0, len(neighbors))]]
-
 
 class AStarAlgorithm(AgentAlgorithm):
 
@@ -782,7 +714,7 @@ class ProcessingThread(threading.Thread):
             if self.pyhandler:
                 self.pyhandler.grid = builder.grid
 
-            maze = builder.build2()
+            maze = builder.build()
             half_h = int(maze.rows / 2)
             start_half = randrange(0, 2)  # randomly pick either top half or bottom half
             end_half = 1 - start_half
@@ -877,7 +809,7 @@ def main():
     algorithms = [AStarAlgorithm(limit_m, limit_a), ReverseAStar(limit_m, limit_a), AdaptiveAStarAlgorithm(limit_m, limit_a)]
     algorithm = algorithms[algorithm - 1]
     
-    if None in start_coords and None in goal_coords:
+    if None in start_coords or None in goal_coords:
         start = None
         goal = None
     else:
