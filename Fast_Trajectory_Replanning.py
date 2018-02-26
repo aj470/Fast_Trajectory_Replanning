@@ -558,6 +558,11 @@ class AStarAlgorithm(AgentAlgorithm):
         return tuple(path)
 
 
+class ReverseAStar(AStarAlgorithm):
+    def run(self, grid, start, goal):
+        super().run(grid, goal, start)
+
+
 class AdaptiveAStarAlgorithm(AgentAlgorithm):
 
     def compute_path(self, grid, start, goal):
@@ -851,12 +856,6 @@ def main():
     goal_coords = args['g_x'], args['g_y']
     run_random = args['random']
     map_number = args['m']
-    
-    if algorithm == 2:
-        temp = start_coords
-        start_coords = goal_coords
-        goal_coords = temp
-    
 
     # ensure a valid set of arguments was passed
     if full_sim and run_random:
@@ -869,7 +868,7 @@ def main():
         quit()
 
     # populate this array with algorithms corresponding to the argument options
-    algorithms = [AStarAlgorithm(limit_m, limit_a), AStarAlgorithm(limit_m, limit_a),AdaptiveAStarAlgorithm(limit_m, limit_a)]
+    algorithms = [AStarAlgorithm(limit_m, limit_a), ReverseAStar(limit_m, limit_a), AdaptiveAStarAlgorithm(limit_m, limit_a)]
     algorithm = algorithms[algorithm - 1]
 
     maze_builder = None
