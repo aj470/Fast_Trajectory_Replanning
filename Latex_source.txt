@@ -81,6 +81,30 @@ The hnew(n) <= hnew(n’) + c(n,a,n’) <= hnew(n’) + c’(n,a,n’). Looking at this, w
 \section*{Part 6}
         We could improve memory consumption by not using python because it uses 28 bytes for a single integer and 24 bytes for booleans. We could pack all the data into one integer per cell which will end up to be 40 byte integer per cell instead of 132 bytes. Another suggestions would be to use lists and dictionaries over the node class because each node object has a 56 byte overhead. If we get rid of that 56 byte overhead and pack all the values into one integer, it can be slimmed down to 64 bytes per cell. This would then lead to usage of 62 MB for a grid of size 1001x1001.\par The largest grid within 4 MB will be of size 178x178. Running grid of size1001x1001 would take 126 MB. 
   
+\bibliographystyle{plainnat} % or try abbrvnat or unsrtnat
+\bibliography{}
+  Binary Heaps,
+  author = {Victor S. Adamchik},
+  url = {https://www.cs.cmu.edu/~adamchik/15-121/lectures/Binary%20Heaps/heaps.html}
+  \\
+  \\
+  Generalized Adaptive A*,
+  author = {Sven Koenig, Xiaoxun Sun, William Yeoh},
+  url = {http://idm-lab.org/bib/abstracts/papers/aamas08b.pdf}
+  \\
+  \\
+  Introduction to A*,
+  author = {Amit Patel},
+  url = {https://www.redblobgames.com/pathfinding/a-star/introduction.html}
+  \\
+  \\
+  Real-Time Adaptive A*,
+  author = {Sven Koenig,Maxim Likhachev},
+  url = {http://www.cs.cmu.edu/~./motionplanning/papers/sbp\_papers/integrated2/koenig\_realtime\_adaptive\_astar\_aamas06.pdf}
+  
+  
+  
+
 
       
 \end{document}
