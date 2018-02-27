@@ -120,7 +120,7 @@ class Node:
     CLOSED  = 0b00010000
     COLOR   = 0b11100000
 
-    colors = (None, (150, 0, 0), (80, 80, 120))
+    colors = (None, (170, 88, 203), (80, 80, 120))
 
     tie_breaker = lambda x, y: x.g() > y.g()
 
@@ -452,10 +452,10 @@ class AStarAlgorithm(AgentAlgorithm):
                     neighbor.h(heuristic(neighbor, goal))
                     heappush(open_list, neighbor)
 
-        #print("A* visited %d nodes" % i)
+            #print("A* visited %d nodes" % i)
 
-        if len(open_list) == 0:
-            return ()
+            if len(open_list) == 0:
+                return ()
 
         current = goal
         # backtrack from goal to agent
@@ -735,11 +735,14 @@ class ProcessingThread(threading.Thread):
                     node.search(0)
 
             optimal_alg = Optimal(False, False)
-            self.start_node.g(0)
-            self.start_node.search(1)
-            self.end_node.h(0)
-            self.end_node.search(1)
-            optimal = optimal_alg.compute_path(maze, self.start_node, self.end_node)
+            new_maze = MazeBuilder(GridRows, GridCols, seed_, self.limit_g).build()
+            start_node_optimal = new_maze.node(self.start_node.x,self.start_node.y)
+            goal_node_optimal = new_maze.node(self.end_node.x,self.end_node.y)
+            start_node_optimal.g(0)
+            start_node_optimal.search(1)
+            goal_node_optimal.h(0)
+            goal_node_optimal.search(1)
+            optimal = optimal_alg.compute_path(new_maze, start_node_optimal, goal_node_optimal)
             optimal_len = len(optimal)
             optimal_steps = optimal_alg.total
             printb("Optimal route:      %d nodes" % optimal_len)
